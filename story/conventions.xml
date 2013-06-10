@@ -1,0 +1,59 @@
+<xi version="0.0.1">
+  <conventions>
+    <data       path="program/data" />
+    <assets     path="assets" />
+    <composites path="composites"
+                filename_regex="([0-9]+)\\.([0-9]+)x([0-9]+)_(tlr|tld|trd|trl|blr|blu|bru|brl)\\.([0-9]+)fps\\.(.+)\\.composite\\..+"
+                />
+    <!--
+        Composite filename example:
+
+           composites/quinn/walking_r/001.1x1_uld.3fps.head.bmp
+           composites/quinn/walking_r/002.1x1_uld.3fps.body.bmp
+           composites/quinn/walking_r/003.1x5_uld.3fps.legs.bmp
+
+         The above file name will produce XML somewhat like:
+
+         <composite name="quinn_walking_r">
+           <part name="head" order="001" sprite_format="1x1_uld" rate="3fps" />
+           <part name="body" order="002" sprite_format="1x1_uld" rate="3fps" />
+         </composite>
+
+         These filename values can be overridden when referenced.
+
+         Filename parts explained:
+         001       = Z order
+         1x5_uld   = Sprite dimensions "1x5" mean 1 image high 5 images wide.
+                     "tld" means read frames starting from the [t]op [l]eft [d]ownard.
+                     "trl" means read frames starting from the [t]op [r]right to the [l]eft.
+                     "blu" means read frames starting from the [b]ottom [l]left [u]pward.
+         3fps      = 3 frames per second (suggested animation speed).
+         quinn     = Composite sub-part name by which it will be referred.
+         bmp       = File type
+         
+
+         Animation Events:
+
+         At certain times during an animation interesting things may
+         occur. There is a system in place for the animation to
+         communicate these events.
+         
+         <composite name="quinn_picking_up_item">
+           <part name="head" order="001" sprite_format="1x1_uld" rate="3fps" />
+           <part name="body" order="002" sprite_format="1x1_uld" rate="3fps" />
+           <part name="right_arm" order="003" sprite_format="1x5_uld" rate="3fps">
+             <event name="hand_ready" at_frame="1x5" />
+           </part>
+         </composite>
+
+    -->
+    <!--
+    <pages      path="design"
+                filename_regex="\\.(.*)\\.page\\.xml" />
+    -->
+    <!--
+    <behavior   path="behavior"
+                filename_regex="\\.(.*)\\.behavior\\.xml" />
+    -->
+  </conventions>
+</xi>

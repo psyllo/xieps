@@ -1,0 +1,275 @@
+* Scripting Support
+https://www.gnu.org/software/guile/
+http://www.gnu.org/software/guile-sdl/
+* Create DEV mode which has certain controls (keyboard chords) that do things like:
+** Hide all graphics and just display surfaces with alpha blending for overlapping
+   so you can see the position of all things on screen.
+* config.h
+Does it need to be included at the top of each .c source file as I have
+seen in the GLib source? Is that a convention or is it optional
+on an as needed basis?
+* Dialog Trees
+https://en.wikipedia.org/wiki/Dialog_tree
+Non-linear book. Choose your own adventure. The book changes depending on your choices.
+To make this accessible to the non-techie and dialog tree editor would be required.
+Something like the following:
+http://blenderartists.org/forum/showthread.php?220908-Dialogue-Editor-create-dialogue-trees-for-your-game
+http://media.photobucket.com/user/D333/media/dlgeditor.jpg.html?filters[term]=dlgeditor&filters[primary]=images
+Depending on the design, it would likely have to support infinite recursion checking.
+* Use Installer (Perhaps Loki Setup)
+* Playback video with SMPEG https://en.wikipedia.org/wiki/SMPEG
+* Mouse/Accelerometer events
+A good first application would be eyeballs that watch the mouse as it
+moves around the screen. Of course, it would be less interesting on a
+touch screen where there is no mouse-like movement unless the screen
+is being touched. Watching the accelerometer on a touch screen could
+be more interesting in that case. Which introduces the concept of
+conditions based on platform. Watch accelerometer on mobile devices
+and the mouse otherwise.
+* Sequence player
+To drastically increase development speed introduce a player which
+allows:
+
+play
+rewind
+pause
+forward frame
+backward frame
+play speed change
+
+* Pausing/Stopping
+Elapsed times will get screwed up with pausing. Need to design a way
+to pause and not allow the elapsed time to keep extending while
+paused.
+* Attach Game to Emacs with Swank
+To drastically increase development speed allow Emacs to connect to
+the game and control over sockets.
+* Separate Editor and Player
+Create two projects. An Editor/Composer project and a Player
+project. The player would be vastly more simple and easier to
+port.
+
+Separation in this way opens the door for different player
+implementations such as a web based one (possibly ClojureScript /
+ClojureScript One). The player could be a single threaded C/SDL
+project. The Editor/Composer could be a Clojure project. In Clojure it
+will be vastly easier to implement scrubbing and other complex
+features given it's support for concurrency and it's handy data
+structures.
+
+The Editor/Composer can then export some XML or JSON which the player
+will use. The data file does not need to be human editable, but would
+be nice if it was. This would make the Editor/Composer less portable,
+but it would still run on all major Desktop OS's, just not mobile
+platforms, which is not a current requirement.
+
+The file produced by the editor could have the feature of being able
+to leap to any arbitrary point along a sequence timeline.
+
+Programming _code_ could be user friendly, but it produces _data_ that
+is optimized for the player. The data file could be larger and more
+verbose, with the added benefit of being simpler to write a player to
+read it and jump forward and backward.
+
+In the code, you can't know the future until the code runs through,
+but in the data file the future is known.
+
+The down side to this sort of data file is that it would vastly limit
+any dynamic content and non-linear games. A simple choose between door
+A and door B would be okay be easy using links. However, dynamic
+content, such as a user having a choice to pick up an item or not,
+would not be possible without more complex data file features.
+* Persistent Data Structures - Concurrency - Timeline Scrubbing
+    In considering support scrubbing (fast forward, rewind, leap to
+    any point) my thinking lead me all the way to CAS, MVCC,
+    Persistent Data Structures and Software Transactional Memory. Glib
+    has support for CAS, but the rest, I don't think so. So, I'm
+    trying to come up with my list of requirements and hope that I
+    don't feel I need all of those features to accomplish this
+    scrubbing capability.
+
+    - Fast Forward... highly granular, no jumping.
+
+    - Rewind, can be jumpy. Like save points. Playing in reverse is
+    not a requirement, but jumping backwards is (a subtle difference).
+
+    - Jump forward to any point, except when user input is required.
+
+    Ideas to achieve the above requirements:
+
+    - Jumping may not be possible, but fast forward and rewind seem
+    reasonable to implement. A few things seem to be apparent in
+    considering building a scrubber:
+
+    1) Jumping forward does not seem possible. Skipping steps would
+    occur and those steps cannot be calculated because they aren't
+    simple math formulas and are not predictable. Supporting only
+    features that are predictable is too limiting. This means that
+    every frame must be calculated if accurate representations of the
+    future are to be achieved, and the more frames that are skipped
+    the more likely inaccuracies are to occur.
+
+    2) Jumping backwards has all limitations to jumping forward, but
+    worse. The game sequences won't be reversible. Meaning, in forward
+    play if some event gets fired it is not necessarily true that the
+    equal and opposite event will occur if played in reverse. In
+    addition, if one object splits into 3, there is no
+    "reverse-that-please" function to make those 3 objects become
+    one again. We aren't going to impose on the user the requirement that
+    everything that occurs must be reversible simply because we want to
+    jump backwards sometimes. In other words Humpty Dumpty falls off a
+    wall and shatters into 1000 pieces, you cannot put him back
+    together again by jumping backwards.
+
+    3) Since jumping and skipping the calculation of steps is not
+    plausible all steps must be calculated. To achieve fast forward
+    and rewind then it seems obvious that we must record the game
+    state as certain intervals to allow the user to jump to those save
+    points. Whe the player starts it can remember parts of the past
+    and buffer the future up to n seconds. The game state calculator
+    function will likely take two arguments, a game state object and a
+    positive unsigned integer that is the elapsed time into the future
+    to calculate for. Rewind will not be calculated, but rather pulled
+    out of a memory of saved states that were saved at certain
+    intervals (every 1 or 2 seconds perhaps).
+
+    4) The challenge of playing the game faster that it was designed
+    to be played in order to buffer into the future presents a few
+    challenges.
+
+    4a) Timing. Consider: Do x, y, z then wait for an asynch event to
+    fire then call "wait-for-3-seconds". Any asynchronous activity in
+    an iteration of the state calculating function introduces timing
+    issues, in that running through the code fast vs slower will
+    produce slightly different results. Does this mean that asynch
+    activitiy in the state calculator should be avoided? Allowing for
+    asynchronous features seems reasonable given that it should be
+    fairly predictable normal speeds. However, it seems that given the
+    goal of this software, it would be extrememly important to have
+    predictable playback. So, asynchronous features are far lower in
+    priority than predictable playback.
+
+    5) Copying the entire data structure that is the state of the game
+    every n seconds may be too big of a performance hit at design
+    time. To solve this problem persistent data structures could be
+    used. MVCC may not be necessary (but might be nice for the
+    future), but a persistent data structure such as a hash table
+    might be a the way to go. Actually I'm not sure what MVCC entails
+    other than persistent data structures.
+
+    5a) I have no intention of using or implementing a GC system. A
+    good way to do GC for a game is to perform GC on entire scenes as
+    the user moves through the game.
+
+    5b) Using an existing STM might be the way to go:
+    See: http://en.wikipedia.org/wiki/Software_transactional_memory#Implementations
+
+    5c) Rolling my own persistent data structure might be the way to
+    go. Using an existing STM or MVCC stuff might be overkill when all
+    I want to do is maintain separate copies of single data structure
+    effeciently. I might not even can about doing concurrent
+    writes. Concurrent reads should be supported though, which can
+    easily be accomplished if the data structure is updated using CAS
+    (conveniently available in Glib).
+
+    5d) You could port Clojure's PersistentHashMap. Source:
+    https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/PersistentHashMap.java
+    This also might be helpful:
+    http://blog.higher-order.net/2009/09/08/understanding-clojures-persistenthashmap-deftwice/
+
+* Maybe incorporate Libevent
+http://libevent.org/
+* Parallax and Snap-Together corners
+See: http://vimeo.com/64096712
+Being able to say:
+Attach the lower-left corner of image/composite A
+    to the upper-left corner of image/composite B
+Allows for parallaxing images that also touch, such as when
+they are at a right angle to eachother.
+
+Snapping images together at their corners (or arbitrary points) allows
+a single image to be constructed of several images. This is the idea
+behind composite images as it is currently anyway, so this is already
+taken into consideration into the code, but it may have more
+applications.
+* Upport multiple running scenes/stories with frames/borders.
+Side-by-side and/or boxed scenes should be supported and easy to use.
+
+Peudo-code:
+1. add_picture_frame(story_or_scene, "frame.bmp");
+2. move(story_or_scene, x, y, z);
+(Adjusting Z shrinks of zooms.)
+
+Ultimately, _scenes_ should be composable. So, should sequences, just
+like images are composed. They should also be able to be moved around
+and manipulated like other sequences and composites.
+
+To achieve this the scenes could be wrapped in a container that allows
+it to be part of a sequence with a function perhaps much like:
+XIComposite* scene_to_composite(XIScene *scene))
+
+As far as making _stories_ composable, if it was ever supported, it
+could be supported at the player level. Supporting it could be a
+feature of some new player upgrade.
+
+If scenes can be embedded in scenes the recursive dependency checks
+need to be made in case a scene accidentally becomes a dependency of
+itself - which might be supported, to a certain level anyway (like 1).
+* Resizing Screen and Conversion to video
+Crop, Letter Box or Stretch-to-fit could be supported.
+
+Think of DVD menus etc and how they work. Movie may be played
+letter-boxed while the menus are fullscreen.
+
+Check out Swivel for ideas:
+https://www.newgrounds.com/wiki/creator-resources/flash-resources/swivel
+
+One limitation of Swivel is: "Swivel is designed solely with
+animations in mind. However, if you are brave, you can try using the
+Manual mode, which allows interacting with the SWF while it is
+encoding!"
+
+It'd be nice to, if the story is converted, that depending on the
+target format, it support all the menus and interactions of the
+original creation.
+
+* Standard Movement Format
+Some things, like paths and other movements, are expressed ways that
+need math (if even just basic arithmetic) to determine an
+image/composite's location given elapsed time. This is just extra
+processing that can be done ahead of time, at build time.
+
+Converting all movements to a common format, maybe a simple list of
+points, seems like a good idea.
+
+* Z-order between composite images
+See this video: http://www.newgrounds.com/portal/view/599348
+
+The arms go over the table while the bodies remain behind the
+tables. Yet, if I was designing the characters I would want the arms
+to attached to the body. This implies that drawing should go through a
+list of images ordered by their Z-order regardless of which composite
+they belong to.
+* RGB (showrgb command line program)
+A heads-up. There is a command showrgb (in Ubuntu) that prints rgb
+values and names. This list cold be converted into code if RGB stuff
+is ever needed.
+
+255 255 255		grey100
+169 169 169		dark grey
+169 169 169		DarkGrey
+169 169 169		dark gray
+169 169 169		DarkGray
+  0   0 139		dark blue
+  0   0 139		DarkBlue
+  0 139 139		dark cyan
+  0 139 139		DarkCyan
+139   0 139		dark magenta
+139   0 139		DarkMagenta
+139   0   0		dark red
+139   0   0		DarkRed
+144 238 144		light green
+144 238 144		LightGreen
+* Point-to-Point Smooth Camera movements.
+Example: Clicking a link will smoothly send the camera to the link
+location which would be a point to center on.

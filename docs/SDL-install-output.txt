@@ -1,0 +1,62 @@
+libtool: install: /usr/bin/install -c build/.libs/libSDL-1.2.so.0.11.4 /usr/local/lib/libSDL-1.2.so.0.11.4
+libtool: install: (cd /usr/local/lib && { ln -s -f libSDL-1.2.so.0.11.4 libSDL-1.2.so.0 || { rm -f libSDL-1.2.so.0 && ln -s libSDL-1.2.so.0.11.4 libSDL-1.2.so.0; }; })
+libtool: install: (cd /usr/local/lib && { ln -s -f libSDL-1.2.so.0.11.4 libSDL.so || { rm -f libSDL.so && ln -s libSDL-1.2.so.0.11.4 libSDL.so; }; })
+libtool: install: /usr/bin/install -c build/.libs/libSDL.lai /usr/local/lib/libSDL.la
+libtool: install: /usr/bin/install -c build/.libs/libSDL.a /usr/local/lib/libSDL.a
+libtool: install: chmod 644 /usr/local/lib/libSDL.a
+libtool: install: ranlib /usr/local/lib/libSDL.a
+libtool: finish: PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/sbin" ldconfig -n /usr/local/lib
+----------------------------------------------------------------------
+Libraries have been installed in:
+   /usr/local/lib
+
+If you ever happen to want to link against installed libraries
+in a given directory, LIBDIR, you must either use libtool, and
+specify the full pathname of the library, or use the `-LLIBDIR'
+flag during linking and do at least one of the following:
+   - add LIBDIR to the `LD_LIBRARY_PATH' environment variable
+     during execution
+   - add LIBDIR to the `LD_RUN_PATH' environment variable
+     during linking
+   - use the `-Wl,-rpath -Wl,LIBDIR' linker flag
+   - have your system administrator add LIBDIR to `/etc/ld.so.conf'
+
+See any operating system documentation about shared libraries for
+more information, such as the ld(1) and ld.so(8) manual pages.
+----------------------------------------------------------------------
+/bin/bash ./libtool --mode=install /usr/bin/install -c build/libSDLmain.la /usr/local/lib/libSDLmain.la
+libtool: install: /usr/bin/install -c build/.libs/libSDLmain.lai /usr/local/lib/libSDLmain.la
+libtool: install: /usr/bin/install -c build/.libs/libSDLmain.a /usr/local/lib/libSDLmain.a
+libtool: install: chmod 644 /usr/local/lib/libSDLmain.a
+libtool: install: ranlib /usr/local/lib/libSDLmain.a
+libtool: finish: PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/sbin" ldconfig -n /usr/local/lib
+----------------------------------------------------------------------
+Libraries have been installed in:
+   /usr/local/lib
+
+If you ever happen to want to link against installed libraries
+in a given directory, LIBDIR, you must either use libtool, and
+specify the full pathname of the library, or use the `-LLIBDIR'
+flag during linking and do at least one of the following:
+   - add LIBDIR to the `LD_LIBRARY_PATH' environment variable
+     during execution
+   - add LIBDIR to the `LD_RUN_PATH' environment variable
+     during linking
+   - use the `-Wl,-rpath -Wl,LIBDIR' linker flag
+   - have your system administrator add LIBDIR to `/etc/ld.so.conf'
+
+See any operating system documentation about shared libraries for
+more information, such as the ld(1) and ld.so(8) manual pages.
+----------------------------------------------------------------------
+/bin/bash build-scripts/mkinstalldirs /usr/local/share/aclocal
+mkdir -p -- /usr/local/share/aclocal
+/usr/bin/install -c -m 644 ./sdl.m4 /usr/local/share/aclocal/sdl.m4
+/bin/bash build-scripts/mkinstalldirs /usr/local/lib/pkgconfig
+mkdir -p -- /usr/local/lib/pkgconfig
+/usr/bin/install -c -m 644 sdl.pc /usr/local/lib/pkgconfig
+/bin/bash build-scripts/mkinstalldirs /usr/local/share/man/man3
+mkdir -p -- /usr/local/share/man/man3
+for src in ./docs/man3/*.3; do \
+	    file=`echo $src | sed -e 's|^.*/||'`; \
+	    /usr/bin/install -c -m 644 $src /usr/local/share/man/man3/$file; \
+	done

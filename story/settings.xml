@@ -1,0 +1,12 @@
+<xi version="0.0.1">
+  <settings>
+    <screen preferred_w="800"
+            preferred_h="600"
+            preferred_bpp="32" />
+    <fullscreen allowed="true" at_startup="false" />
+    <assets max_count="100000" />
+    <file_search max_subdir_depth="10" />
+    <z_scaling per_1_percent="1.0" />
+    <speed fps="30" />
+  </settings>
+</xi>

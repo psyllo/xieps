@@ -1,0 +1,22 @@
+<movement type="path"
+          rotatable="true"
+          repeatable="false">
+  <!--
+      A movement of type "path" should contain a list of xyz points
+      with at least two points defining the start and finish.
+
+      Type "path" defaults:
+      
+      repeatable="false"
+      
+      Should probably only be repeatable if the path is a loop.
+      
+      step_speed="constant"
+      
+      A constant speed seems to fit most "path" type scenarios.
+
+  -->
+  <!-- X,      Y,      Z; -->
+  -010.0, 0080.0, 0000.0;
+  0050.0, 0080.0, 0000.0;
+</movement>

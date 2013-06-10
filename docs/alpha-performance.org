@@ -1,0 +1,148 @@
+An SDL Per-Surface Alpha Performance Test:
+
+* TODO compare SDL_SetColorKey, SDL_SetAlpha, SDL_SetAlphaChannel
+
+* Objective
+ - Show performance of using a per-surface alpha value
+ - Show performance of SDL_RLEACCEL
+ - Show performance of alpha channel vs full image opacity
+ - Show performance of image conversion using SDL_DisplayFormat and
+   SDL_DisplayFormatAlpha
+ - Show performance differences between different alpha values (for
+   example an alpha value of 128 is supposed to be optimized).
+* Conditions
+Hardware:
+ - MSI A6400 Laptop
+ - 4GB RAM, DDR III 2GB * 2
+ - LCD Screen, 15.6" HD 1366x768
+ - Intel Core i5-2410M CPU @ 2.30GHz × 4
+ - Intel HD Graphics 3000
+Software:
+ - Ubuntu Desktop 12.04 LTS
+ - SDL 1.2, sdlgfx 1.2, SDL_Image 1.2
+ - Video Mode 800x600@32bpp windowed. SDL Double Buffering. No OpenGL.
+ - Images were loaded using IMG_Load from the SDL_image library.
+ - Images were drawn directly on top of each other at (0,0) and
+   directly onto a topmost "display" surface.
+ - Framerate set to 200 and managed by sdlgfx's SDL_framerate.h.
+
+* Disclaimer
+ - Alpha effects surface blitting in many ways. This test by no means
+   comes remotely close to testing all the different scenarios.
+ - For more info: http://www.libsdl.org/docs/html/sdlsetalpha.html
+
+* Column descriptions:
+
+Type:
+ - Full: No alpha channel. Full image opacity adjustment.
+   - (1) SDL_SetAlpha (2) SDL_DisplayFormat.
+ - Channel: Self-explanatory.
+   - (1) SDL_SetColorKey (2) SDL_SetAlpha (3) SDL_DisplayFormatAlpha
+ - None: No alpha.
+   - (1) SDL_DisplayFormat
+   - Event though no alpha value is used, this is helpful because it
+     shows the performance hit if converting each time vs caching.
+
+SDL_RLEACCEL:
+   - An acceleration feature
+   - Indicates if SDL_RLEACCEL was passed to SDL_SetAlpha.
+   - Note that another flag, "SDL_SRCALPHA", was always included in
+     SDL_SetAlpha calls.
+
+FPS *:
+ - Frames Per Second
+ - Jumpy framerates are roughly averaged out using a quick
+   guesstimate.
+ - FPS Conv:
+   - Images are converted each time.
+ - FPS Cache:
+   - Images are converted once and cached.
+   BG Conv:
+   - The framerate when the aforementioned blue-green 800x600 BMP
+     image was used as the background.
+
+Alpha:
+ - Alpha value
+   -   0, fully transparent
+   - 255, fully opaque
+
+
+* Results
+
+Test set #1
+25 images. 800x600 blue-green Windows BMP. All one solid color.
+| Type    | Alpha | SDL_RLEACCEL? | FPS Conv | FPS Cache |
+|---------+-------+---------------+----------+-----------|
+| None    |   255 | N/A           |       43 |        90 |
+| None    |   180 | N/A           |       43 |        90 |
+| None    |   128 | N/A           |       43 |        90 |
+| None    |     5 | N/A           |       43 |        90 |
+| None    |     0 | N/A           |       43 |        90 |
+| Full    |   255 | SDL_RLEACCEL  |       47 |       111 |
+| Full    |   180 | SDL_RLEACCEL  |       16 |        22 |
+| Full    |   128 | SDL_RLEACCEL  |       25 |        33 |
+| Full    |     5 | SDL_RLEACCEL  |       16 |        22 |
+| Full    |     0 | SDL_RLEACCEL  |       16 |        22 |
+| Full    |   255 |               |       47 |       111 |
+| Full    |   180 |               |       17 |        22 |
+| Full    |   128 |               |       25 |        35 |
+| Full    |     5 |               |       17 |        22 |
+| Full    |     0 |               |       17 |        22 |
+| Channel |   255 | SDL_RLEACCEL  |        2 |        90 |
+| Channel |   180 | SDL_RLEACCEL  |        2 |        20 |
+| Channel |   128 | SDL_RLEACCEL  |        2 |        20 |
+| Channel |     5 | SDL_RLEACCEL  |        2 |        20 |
+| Channel |     0 | SDL_RLEACCEL  |        7 |       200 |
+| Channel |   255 |               |        3 |        27 |
+| Channel |   180 |               |        3 |        18 |
+| Channel |   128 |               |        3 |        18 |
+| Channel |     5 |               |        3 |        18 |
+| Channel |     0 |               |        3 |        60 |
+|         |       |               |          |           |
+
+Test set #2 - TODO: Finish these tests and include alpha values of 128.
+25 images. 400x300 Mountain. 2 colors. Blue (0,0,255) for the sky and
+dark green (0,0,127) for the mountain. Blue is about 60% of the image.
+| Type    | Alpha | SDL_RLEACCEL? | BG Conv | FPS Conv | FPS Cache |
+|---------+-------+---------------+---------+----------+-----------|
+| None    |   255 | N/A           |         |          |           |
+| None    |   180 | N/A           |     100 |      166 |           |
+| None    |   128 | N/A           |         |          |           |
+| None    |     5 | N/A           |     100 |      166 |           |
+| None    |     0 | N/A           |     100 |      166 |           |
+| Full    |   255 | SDL_RLEACCEL  |         |          |           |
+| Full    |   180 | SDL_RLEACCEL  |      50 |       55 |           |
+| Full    |   128 | SDL_RLEACCEL  |         |          |           |
+| Full    |     5 | SDL_RLEACCEL  |      50 |       55 |           |
+| Full    |     0 | SDL_RLEACCEL  |      50 |       55 |           |
+| Full    |   255 |               |         |          |           |
+| Full    |   180 |               |      55 |       55 |           |
+| Full    |     5 |               |      55 |       55 |           |
+| Full    |     0 |               |      55 |       55 |           |
+| Channel |   255 | SDL_RLEACCEL  |         |       11 |       166 |
+| Channel |   180 | SDL_RLEACCEL  |      11 |       10 |        55 |
+| Channel |   128 | SDL_RLEACCEL  |      11 |       10 |        55 |
+| Channel |     5 | SDL_RLEACCEL  |      11 |       10 |        55 |
+| Channel |     0 | SDL_RLEACCEL  |      55 |       40 |       200 |
+| Channel |   255 |               |         |       12 |        90 |
+| Channel |   180 |               |      12 |       12 |        55 |
+| Channel |   128 |               |      11 |       10 |        55 |
+| Channel |     5 |               |      12 |       12 |        55 |
+| Channel |     0 |               |      14 |       14 |       166 |
+|         |       |               |         |          |           |
+
+* Observations
+ - 255 (fully opaque) or 0 (full transparent) have the best
+   performance characteristics, with 128 coming in a distant 3rd
+   place. 128 is optimized,
+   http://www.libsdl.org/docs/html/sdlsetalpha.html
+ - In 'Test set #2' having a background may improve performance when
+   alpha is 0, alpha channel is used and SDL_RLEACCEL is used. Other
+   scenarios show no improvement. I don't understand why this is.
+ - 255 (fully opaque) with full image alpha or alpha channel and
+   SDL_RLEACCEL seem to be as performant as when no alpha is used at
+   all. Therefore, defaulting application settings to enable alpha
+   seems reasonable. The benefit of such a default is that the user
+   would likely expect alpha features to work without having to
+   specifically be enabled on a per image basis, and so long as the
+   alpha value is 255 (fully opaque) there is no performance hit.

@@ -1,0 +1,266 @@
+https://schneide.wordpress.com/2012/08/13/testing-c-programs-using-glib/
+http://timj.testbit.eu/2008/06/24/23062008-writing-unit-tests-with-glib/
+http://www.mail-archive.com/gtk-devel-list@gnome.org/msg06994.html
+
+--------------------------------------------------------------------------------
+
+ Every other week, someone asks how to use the new unit testing framework in GLib (released with GLib-2.16.0) and Gtk+ (to be released with the next stable). First, here is a write-up from last December that summarizes all important aspects: Test Framework Mini Tutorial.
+
+For people building packages that use the new framework, the following new Makefile rules will be of interest:
+
+    make test
+    Run all tests recursively from $(TEST_PROGS), abort on first error.
+    make test-report
+    Run all tests recursively, continue on errors and generate test-report.xml.
+    make perf-report
+    Run all tests recursively, enable performance tests (this usually takes significantly longer), continue on errors, generate perf-report.xml.
+    make full-report
+    Run all tests recursively, enable performance tests, enable slow (thorough) tests, continue on errors, generate full-report.xml.
+    make check
+    Run make test in addition to automake checks.
+
+After GUADEC, we will be looking into getting build machines setup that’ll regularly build GLib, Gtk+ and friends, run the unit testing suites and provide reports online.
+
+For those pondering to write unit tests, but too lazy to look at the tutorial:
+
+    Implementing a test program is very easy, the only things needed are:
+
+      // initialize test program
+      gtk_test_init (&argc, &argv);
+      // hook up your test functions
+      g_test_add_func ("/Simple Test Case", simple_test_case);
+      // run tests from the suite
+      return g_test_run();
+
+    In most cases, a test function can be as simple as:
+
+      static void
+      simple_test_case (void)
+      {
+        // a suitable test
+        g_assert (g_bit_storage (1) == 1);
+        // a test with verbose error message
+        g_assert_cmpint (g_bit_storage (1), ==, 1);
+      }
+
+    Tests that abort, e.g. via g_assert() or g_error(), are registered as failing tests with the framework. Also, the gtester utility used to implement the above Makefile rules will restart a test binary after a test function failed and continue to run remaining tests if g_test_add_func() has been used multiple times.
+    Checks in tests can be written with if() and g_error() or exit(1), or simply by using variants of g_assert(). For unit tests in particular, an extended set of assertions has been added, the benefit of using these are the printouts of the involved values when an assertion doesn’t hold:
+
+      g_assert_cmpstr   (stringa, cmpop, stringb);
+      g_assert_cmpint   (int64a,  cmpop, int64b);
+      g_assert_cmpuint  (uint64a, cmpop, uint64b);
+      g_assert_cmphex   (uint64a, cmpop, uint64b);
+      g_assert_cmpfloat (doublea, cmpop, doubleb);
+
+    For instance:
+    char *string = "foo"; g_assert_cmpstr (string, ==, "bar");
+    yields:
+    ERROR: assertion failed (string == "bar"): ("foo" == "bar")
+    The framework makes it easy to test program output in unit tests:
+
+      static void
+      test_program_output (void)
+      {
+        if (g_test_trap_fork (0, G_TEST_TRAP_SILENCE_STDOUT |
+                                 G_TEST_TRAP_SILENCE_STDERR))
+          {
+            g_print ("some stdout text: somagic17\n");
+            g_printerr ("some stderr text: semagic43\n");
+            exit (0);
+          }
+        g_test_trap_assert_passed();
+        g_test_trap_assert_stdout ("*somagic17*");
+        g_test_trap_assert_stderr ("*semagic43*");
+      }
+
+    And it is similarly easy to test and verify intentional program abortion:
+
+      static void
+      test_fork_fail (void)
+      {
+        if (g_test_trap_fork (0, G_TEST_TRAP_SILENCE_STDERR))
+          {
+            g_assert_not_reached();
+          }
+        g_test_trap_assert_failed();
+        g_test_trap_assert_stderr ("*ERROR*test_fork_fail*not*reached*");
+      }
+
+    The above and more tests are showcased in GLib: glib/tests/testing.c.
+
+There’s of course lots of room left to improve GLib and Gtk+ unit tests, and also to improve the current framework. For a speculative, non-comprehensive list, here are some ideas from the unit testing section of my personal TODO:
+
+    Introduce 2D marker recognition for graphical unit testing of Gtk+ layouts (prototyped in Rapicorn).
+    Provide functionality to determine image similarities to allow for pixel image based unit tests (port this from Rapicorn).
+    Implement state dumps to automate result specification and verification in unit tests. (This will allow us to avoid adding lots of abusable testing hooks to our API.)
+    Integrate performance statistics (like #354457) and other related information into test reports.
+    Publically install a variant of the Makefile.decl file used in Gtk+ to implement the test framework rules and Xvfb swallowing of test programs. This is needed by other projects to run unit tests the way Gtk+ does.
+    Implement the unit test ideas that are outlined at the end of this email: Gtk+ unit tests (brainstorming).
+
+--------------------------------------------------------------------------------
+
+Hey All.
+
+The following gives a mini tutorial on writing test programs for GLib
+and Gtk+ with the new framework. We have a good number of example test
+programs in SVN now and appreciate help from everyone in implementing
+new tests.
+
+First, we'll have a quick introduction into the main rationale on
+test writing.
+
+The main goals in writing tests are:
+- In example (test) driven development (EDD or TDD), an example or test
+  program is written first, and then the newly used API gets implemented.
+  This ensures early testability and gives programmers early feedback on
+  their implementation.
+- For untested legacy code, new tests are written to get about to be changed
+  code portions under automated tests to catch behavior changes as code is
+  changed.
+- Most tests are written to ensure basic functionality checks of the code
+  area in change. Tests usually cannot perform comprehensive checks, but
+  can check for specific known to be tricky corner cases or often test a
+  representative subset of an API.
+
+In general, working on code that is sufficiently under automated tests
+makes programmers feel much more confident about their changes and helps
+to spot errors shortly after introduction. So well tested code bases
+tend to increase productivity and fun in working with the code.
+
+
+The following list of steps is hopefully helpful when approaching the
+implementation of a new test for GLib or Gtk+:
+
+1) Figure a place for the test case. For this it's useful to keep in mind
+   that make check will traverse CWD recursively. So tests that should be
+   run often when glib, gdk or gtk changed should go into glib/glib/tests/,
+   gtk+/gtk/tests/ or gtk+/gdk/tests/. Tests more thorough or planned to
+   be run less frequently can go into glib/tests/ or gtk+/tests/. This is
+   e.g. the case for the generic object property tester in
+   gtk+/tests/objecttests.c. To sum up:
+     glib/tests/		# less frequently run GLib tests
+     glib/glib/tests/		# frequent GLib testing
+     glib/gobject/tests/	# frequent GObject testing
+     gtk+/tests/		# less frequently run Gdk & Gtk+ tests
+     gtk+/gdk/tests/		# frequent Gdk testing
+     gtk+/gtk/tests/		# frequent Gtk+ testing
+   Also, not all tests need to go into an extra test binary. Building and
+   linking many test binaries can be quite time consuming, so linking
+   multiple .c files with tests into a single test binary can be advisable.
+
+2) Write the test fixture setup and teardown code if necessary.
+   See e.g. ScannerFixture in glib/tests/scannerapi.c for a simple
+   example fixture that creates and sets up an object to be used
+   freshly in various different tests.
+
+3) Implement the actual test function, possibly taking a fixture argument.
+   Tests should try to avoid duplicating logic or tests and often consist
+   of a series of calls and checks to use a component and verify its
+   behavior, e.g.:
+     string = g_string_new ("first");
+     g_assert_cmpstr (string->str, ==, "first");
+     g_string_append (string, "last");
+     g_assert_cmpstr (string->str, ==, "firstlast");
+   The current set of useful test assertions provided by GLib is:
+     g_assert_not_reached ();
+     g_assert             (expression);
+     g_assert_cmpstr      (s1, cmpop, s2);
+     g_assert_cmpint      (n1, cmpop, n2);
+     g_assert_cmpuint     (n1, cmpop, n2);
+     g_assert_cmphex      (n1, cmpop, n2);
+     g_assert_cmpfloat    (n1, cmpop, n2);
+   Where 'cmpop' is the compare operator, such as '==' or '>='.
+   Of course g_error() can also be used once a test error is discovered.
+   Note that g_warning() will usually also abort test programs, because
+   tests generally run with --g-fatal-warnings enabled.
+
+4) Verify stdout and stderr output or assert failures.
+   Tests can be started in a separate forked off sub process to capture
+   premature failure, exit status and output. Here is a sample snippet:
+     if (g_test_trap_fork (0, G_TEST_TRAP_SILENCE_STDOUT |
+                              G_TEST_TRAP_SILENCE_STDERR))
+       {
+         g_warning ("harmless warning with parameters: %d %s %#x", 42, "Boo", 12345);
+         exit (0); // should never be triggered
+       }
+     g_test_trap_assert_failed(); // we have fatal-warnings enabled
+     g_test_trap_assert_stderr ("*harmless warning*");
+   More example uses of the test_trap API can be found in:
+     glib/tests/testglib.c
+     glib/tests/scannerapi.c
+     glib/glib/tests/testing.c
+
+5) Conditionalize slow or fragile tests.
+   While unit tests are most effective if they are fast, to allow quick
+   turn around times during development, slow or more thorough tests
+   also have their place. Test routines can be conditionalized in case
+   they contain fragile or slow code with the following API:
+     gboolean g_test_perf     ();  // TRUE to enable (slow) performance tests
+     gboolean g_test_slow     ();  // TRUE to execute possibly slow test code
+     gboolean g_test_thorough ();  // TRUE to execute possibly fragile code
+     gboolean g_test_verbose  ();  // TRUE to enable additional info output
+   For instance gtk+/tests/objecttests.c has a black list of "suspected to
+   be buggy" Gtk+ property implementation. Testing and verification of the
+   properties on this blacklist is conditionalized with g_test_thorough(),
+   so testing these properties doesn't break "make check", but the errors
+   still show up when doing "make full-report" (more on testing related
+   Makefile rules later).
+
+6) Hook up the test in the test program. The simplest test program is:
+     int
+     main (int   argc,
+           char *argv[])
+     {
+       gtk_test_init (&argc, &argv); // initialize test program
+       g_test_add_func ("/TestProgramName/Test Case Name", test_case_test_func);
+       return g_test_run();
+     }
+   The g_test_add() function can be used to hook up tests with Fixtures:
+     g_test_add ("/scanner/symbols",        // test case name
+                 ScannerFixture,            // fixture structure type
+                 NULL,                      // unused data argument
+                 scanner_fixture_setup,     // fixture setup
+                 test_scanner_symbols,      // test function
+                 scanner_fixture_teardown); // fixture teardown
+
+7) Integrate the test binary into the build and test rules.
+   For GLib and Gtk+, all that is needed is to add a few lines to
+   the respective Makefile.am, e.g.:
+     +++ gtk+/gtk/tests/Makefile.am
+      @@ -24,7 +24,11 @@ noinst_PROGRAMS = $(TEST_PROGS)
+      TEST_PROGS       += testing
+      testing_SOURCES   = testing.c
+      testing_LDADD     = $(progs_ldadd)
+
+     +TEST_PROGS       += liststore
+     +liststore_SOURCES = liststore.c
+     +liststore_LDADD   = $(progs_ldadd)
+     +
+      TEST_PROGS       += treestore
+      treestore_SOURCES = treestore.c
+      treestore_LDADD   = $(progs_ldadd)
+
+8) Execute the tests.
+   Currently, GLib and Gtk+ support four Makefile targets related
+   to tests, one of which is hooked up to automake's check rule:
+     make test		# run all tests recursively from $(TEST_PROGS),
+                        # abort on first error
+     make test-report	# run all tests recursively,
+                        # ignore errors, generate test-report.xml
+     make perf-report	# run all tests recursively, enable performance tests,
+                        # ignore errors, generate perf-report.xml
+     make full-report	# run all tests recursively, enable performance tests,
+                        # enable slow/thorough tests,
+                        # ignore errors, generate full-report.xml
+     make check         # run make test in addition to automake checks
+   For Gtk+, the tests from $(TEST_PROGS) will be executed within an Xvfb(1)
+   server, to avoid interactions with a currently running session.
+
+
+On an aside, the XML files generated by gtester from the *-report rules
+are of course not that interesting for humans. The last bit of our testing
+framework implementation in GLib and Gtk+ is to generate an overview of
+all the test results of a test run in HTML files from the XML logs.
+
+---
+ciaoTJ

@@ -1,0 +1,169 @@
+* Description:
+
+An animation platform:
+
+Xieps is animation software with support for interaction
+experiences. Xieps is not a tool for creating audio or graphics, but
+rather for composing them into animated stories.
+
+The Xieps software project attempts to help authors and artists create
+cross-platform native running animated movies, interactive books or
+games for as many devices as possible.
+
+* Focus
+- Allowing the artist to express visual stories with images and
+  audio. Animated movies, interactive books, non-linear stories, etc.
+- Offline play. Work can be distributed as a native running program
+  for mobile devices or desktop computers. Users can have a native
+  copy to play offline.
+- Portability. Cross-platform.
+- Design/write once and build versions that target mobile devices or
+  desktop computers.
+
+** Portability and Language
+Xieps is implemented in the C programming language which gives it
+potential to stay fast and more easily portable to desktop and mobile
+devices. The C language is ubiquitous and most other languages already
+have ways of working together nicely with C. One goal of Xieps is
+easily interfacing with other programming languages and we'd like to
+support as many languages as possible.
+
+** Programming APIs and Visual Tools
+Xieps does not attempt to remove the user from the world of
+programming. Those that avoid programming where programming excels
+often pay a lofty price. Sometimes there is no better way to solve a
+problem than through language. For various good and bad reasons (all
+too often for ignorance on the subject) many have tried to create
+visual tools to replace programming. While some progress has been made
+much failure has also occurred. There are certain things that visual
+tools excel at and there are certain things that formal languages
+excel at; however, sometimes you don't know until you try! With that
+said, our first priority are the programming interfaces. If underneath
+there is a good clean programming interface visual tools can more
+easily be added when and where they make sense.
+
+* Book-like video game or book-game
+A book-like video game or "book-game" is:
+- Intended to be like a story book.
+- Intended to run natively not be hosted.
+- Cross-platform. As many as we can reasonably support.
+- Design once and build for multiple platforms.
+
+
+* Goals
+
+1. Ease for authors to create books. Considered as perhaps the top
+priority. Give authors a platform to create digital interactive book
+with ease.
+
+2. Native over Hosted. The book-games standalone as executables and
+run natively rather than being hosted (on the web).
+
+3. User autonomy and ownership. The choice to create native
+executables rather than making books available through hosted web
+application was made because I want users to own their books and have
+an actual copy, source code and all. No DRM, usage tracking, ability
+to revoke access to books etc.
+
+4. High quality. The book-games should look and feel modern, fast, smooth.
+
+
+* Step-by-step rough example:
+Step #1: Build
+
+./configure && make
+
+Step #2: Create a my_book.xml file.
+
+<book>
+ ...
+</book>
+
+Step #3: Build app
+
+src/xieps my_book.xml
+
+Step #4: Run app
+
+build/latest/<platform>/my_book
+
+* Relevant resources
+http://developer.gnome.org/glib/
+http://www.ibm.com/developerworks/linux/tutorials/l-glib/section2.html
+http://www.gnu.org/software/libmicrohttpd/
+http://check.sourceforge.net/
+https://www.gnu.org/software/automake/manual/automake.html
+http://socgsa.cs.clemson.edu/seminar/tools06/resources/08_autotools/automake.htm
+http://www.lrde.epita.fr/~adl/autotools.html
+http://www.gnu.org/software/gnulib/manual/gnulib.html#Philosophy
+
+* Related Solutions
+http://alternativeto.net/software/adobe-flash/ (list)
+https://www.adobe.com/products/flash/features.html
+http://www.synfig.org/cms/
+http://stencyl.com/
+http://unity3d.com/
+http://www.compilgames.net/
+http://www.coffeecup.com/firestarter/
+http://www.coffeecup.com/animation-studio/
+https://www.toonboom.com/
+http://scratch.mit.edu/
+
+* Image manipulation
+** ImageMagick
+
+Home Page:
+http://www.imagemagick.org/script/index.php
+
+Concatenate images together (to makes sprites).
+http://www.imagemagick.org/Usage/montage/#concatenate
+
+
+* About animation stuff in general
+** 2D/2.5D Graphics (a largely antiquated technique since 3D acceleration)
+   https://en.wikipedia.org/wiki/2.5D
+   https://en.wikipedia.org/wiki/Isometric_graphics_in_video_games
+   https://en.wikipedia.org/wiki/Sprite_%28computer_graphics%29
+   https://en.wikipedia.org/wiki/Blitter
+** Features ideas in animation software
+http://blog.ninapaley.com/2013/01/03/its-2013-do-you-know-where-my-free-vector-animation-software-is/
+** Tweening
+https://en.wikipedia.org/wiki/Inbetweening
+** Ray Tracing
+https://en.wikipedia.org/wiki/Ray_tracing_%28graphics%29
+** Bezier Curve
+https://en.wikipedia.org/wiki/B%C3%A9zier_curve
+http://www.math.ucla.edu/~baker/java/hoefer/Bezier.htm
+*** Bezier Curve Math
+http://moshplant.com/direct-or/bezier/math.html
+
+*** sdlgfx Bezier Curve
+http://www.ferzkopp.net/joomla/content/view/19/14/
+http://www.ferzkopp.net/joomla/software-mainmenu-14/4-ferzkopps-linux-software/19-sdlgfx
+int bezierColor(SDL_Surface * dst, Sint16 * vx, Sint16 * vy, int n, int s, Uint32 color);
+int bezierRGBA(SDL_Surface * dst, Sint16 * vx, Sint16 * vy, int n, int s, Uint8 r, Uint8 g, Uint8 b, Uint8 a);
+** Other Effects
+http://hosted.zeh.com.br/tweener/docs/en-us/misc/transitions.html
+https://en.wikipedia.org/wiki/Motion_blur
+https://en.wikipedia.org/wiki/Image_warping
+https://en.wikipedia.org/wiki/Morphing
+** Libre Graphics Meeting
+http://libregraphicsmeeting.org/
+** SVG (Scalable Vector Graphics)
+https://en.wikipedia.org/wiki/Scalable_Vector_Graphics
+
+* Other software
+http://www.maefloresta.com/portal/about
+
+* More
+** About glib as dependency:
+http://stackoverflow.com/questions/1732822/portably-include-glib-headers-in-autoconf-automake
+http://stackoverflow.com/questions/14824860/adding-glib-to-an-existing-application-with-gnu-toolchain-configure-makefile
+http://www.appgamekit.com/code-snippets.php
+** Gettext
+http://www.gnu.org/software/gettext/manual/html_node/Overview.html
+* Sprite Databases
+http://www.spriters-resource.com/arcade/cadillacsdinosaurs/sheet/54402
+* C/GCC
+Transactional Memory
+http://gcc.gnu.org/wiki/TransactionalMemory

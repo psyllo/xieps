@@ -1,0 +1,55 @@
+<movement type="xyz_difference"
+          travel_axis="x"
+          rotatable="true"
+          repeatable="true"
+          step_speed="average">
+  <!--
+      Options explained:
+      
+      travel_axis="x": his means that the movement was design with an
+      object traveling left or right in mind.
+
+      Type "xyz_difference" defaults:
+      
+      Should be inherently be repeatable, though that can be
+      overridden.
+      
+      repeatable="true"
+      
+      Step distance defaults to "average".
+      
+      step_speed="average"
+      
+      If step_speed times the number of steps does not reach 100%
+      then and the movement by is repeatable the default is to
+      loop/repeat the movement.
+      
+      To the contrary, if the step_speed exceeds 100% then some
+      steps may never be reached.
+      
+      If the movement somehow results in the object not arriving at
+      its intended destination then a correction is automatically made
+      in the code that uses the movement to ensure the object
+      arrives. In the case of an xyz_difference that means that a
+      final step is added where x, y and z are all 0.0.
+      
+      With xyz_difference, when step_speed is a percentage, if a
+      particular step is a large change is distance the object on
+      screen will move very quickly to cover that ground. The inverse
+      is also true for a short distance, an object will move slowly if
+      the distance to cover is small for that step.
+      
+      To the contrary if step_speed is set to "constant" then the
+      object will maintain a constant speed throughout the entire
+      movement. If the object does not reach its intended destination
+      an adjustment will automatically be made at the end of the
+      movement.
+  -->
+  <!-- X,      Y,      Z; -->
+  0000.0, 0010.0, 0010.0;
+  0000.0, -010.0, -010.0;
+  0000.0, 0010.0, 0010.0;
+  0000.0, -010.0, -010.0;
+  0000.0, 0010.0, 0010.0;
+  0000.0, -010.0, -010.0;
+</movement>

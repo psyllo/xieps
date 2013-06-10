@@ -1,0 +1,17 @@
+Makefile
+TAGS
+po/
+*.o
+*.lo
+*.la
+.deps/
+.libs/
+*.log
+stamp-h1
+tests/xieps_test
+sdl_player/xieps_sdl_player
+autom4te.cache
+config.h
+config.status
+doxygen-output
+libtool

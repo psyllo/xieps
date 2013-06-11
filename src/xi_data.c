@@ -12,25 +12,6 @@ static gboolean XI_EVENT_CASCADING = TRUE; /*!< Prevent gaps between an event
                                              firing and being handled. */
 
 void
-xi_drivable_point_to_g_debug(XIDrivablePoint *point)
-{
-  g_debug("XIDrivablePoint {");
-  g_debug(" x           = %g", point->x);
-  g_debug(" y           = %g", point->y);
-  g_debug(" z           = %g", point->z);
-  g_debug(" input_x     = %g", point->input_x);
-  g_debug(" input_y     = %g", point->input_y);
-  g_debug(" input_z     = %g", point->input_z);
-  g_debug(" speed_x     = %g", point->speed_x);
-  g_debug(" speed_y     = %g", point->speed_y);
-  g_debug(" speed_z     = %g", point->speed_z);
-  g_debug(" max_speed   = %g", point->max_speed);
-  g_debug(" accel_rate  = %g", point->accel_rate);
-  g_debug(" decel_rate  = %g", point->decel_rate);
-  g_debug("}");
-}
-
-void
 xi_sequence_setup_hooks_if_null(XISequence *seq)
 {
   g_return_if_fail(seq != NULL);
@@ -58,34 +39,6 @@ xi_event_input_subtype_for_listener_key(gchar const *key)
   return XI_EVENT_SUBTYPE_NA;
 }
 
-/*!
-
-  TODO: LEFT_OFF
-
- */
-void
-xi_handle_input_xy_for_drivable_point(XIEvent *event)
-{
-  g_return_if_fail(event != NULL);
-
-  if(event->type    == XI_INPUT_EVENT &&
-     event->subtype == XI_INPUT_XY) {
-
-    XIInput_XY      *input_xy = (XIInput_XY*)event->type_data;
-    XIDrivablePoint *point    = (XIDrivablePoint*)event->handler_data;
-
-    if(input_xy != NULL && point != NULL) {
-      // LEFT_OFF: Need to be able to move the point diagonally
-      // Maybe store/compare the previous input_xy event to be able to
-      // perform the logic necessary to determine a diagonal movement.
-      point->input_x = input_xy->x;
-      point->input_y = input_xy->y;
-      g_debug("%s: point now {input_x=%g, input_y=%g, input_z=%g}",
-              __FUNCTION__, point->input_x, point->input_y, point->input_z);
-    }
-  }
-}
-
 void
 xi_sequence_setup_listeners(XISequence *seq)
 {
@@ -98,34 +51,12 @@ xi_sequence_setup_listeners(XISequence *seq)
   }
 }
 
-XIDrivablePoint*
-xi_drivable_point_new(XISequence *seq)
-{
-  XIDrivablePoint *point = g_new(XIDrivablePoint, 1);
-
-  point->seq         = seq;
-  point->x           = 0;
-  point->y           = 0;
-  point->z           = 0;
-  point->input_x     = 0;
-  point->input_y     = 0;
-  point->input_z     = 0;
-  point->speed_x     = 0;
-  point->speed_y     = 0;
-  point->speed_z     = 0;
-  point->max_speed   = 100;
-  point->accel_rate  = 8;
-  point->decel_rate  = 5;
-
-  return point;
-}
-
 XICamera*
-xi_camera_new(XISequence *seq)
+xi_camera_new()
 {
   XICamera *cam = g_new(XICamera, 1);
 
-  cam->point = xi_drivable_point_new(seq);
+  cam->point = xi_driveable_point_new();
 
   return cam;
 }
@@ -139,125 +70,67 @@ xi_input_xy_new()
   return ixy;
 }
 
-/*! \brief Update speed_* by gradually accelerating or decelerating.
-*/
-void
-xi_drivable_point_mover_accel_decel(XIDrivablePoint *point, gdouble *speed_xyz,
-                                    gdouble accel)
-{
-  /* Decel of not accelerating and not already stopped */
-  if(accel == 0 && *speed_xyz != 0) {
-    /* Decelerate */
-    if(*speed_xyz > 0) {
-      *speed_xyz -= point->decel_rate;
-      if(*speed_xyz < 0) {
-        *speed_xyz = 0;
-      }
-    }else if(*speed_xyz < 0){
-      *speed_xyz += point->decel_rate;
-      if(*speed_xyz > 0) {
-        *speed_xyz = 0;
-      }
-    }
-  }else{
-    /* Accelerate */
-    *speed_xyz += accel;
-  }
-}
-
-/*! Enforce max_speed. Effective maximum speed is a percentage of
-  max_speed determined by input_*  */
-void
-xi_drivable_point_mover_enforce_max_speed(XIDrivablePoint *point,
-                                          gdouble *speed_xyz,
-                                          gdouble *input_xyz)
-{
-  g_return_if_fail(point     != NULL);
-  g_return_if_fail(speed_xyz != NULL);
-  g_return_if_fail(input_xyz != NULL);
-
-  gdouble effective_max = (abs(*input_xyz) * point->max_speed);
-
-  if(*speed_xyz > effective_max) {
-    *speed_xyz = effective_max;
-  }else if(*speed_xyz < -effective_max){
-    *speed_xyz = -effective_max;
-  }
-}
-
-/*
-  LEFT_OFF
-
-  LEFT_OFF: TODO: Test this with a joystick that has gradual movement
-  as opposed to the keyboard which is 100% or off. With medium
-  pressure the max speed should only be about half of the max_speed.
+/*!
  */
 void
-xi_drivable_point_mover(XIDrivablePoint *point)
+xi_handle_input_xy_for_driveable_point(XIEvent *event)
 {
-  g_return_if_fail(point      != NULL);
-  g_return_if_fail(point->seq != NULL);
+  g_return_if_fail(event != NULL);
 
-  /* How hard we're on the gas. Acceleration should reflect the amount
-     of input pressure. Accel slower if less pressure, etc..  */
-  gdouble x_accel = point->input_x * point->accel_rate;
-  gdouble y_accel = point->input_y * point->accel_rate;
-  gdouble z_accel = point->input_z * point->accel_rate;
+  if(event->type    == XI_INPUT_EVENT &&
+     event->subtype == XI_INPUT_XY) {
 
-  /* Determine speed in each direction */
-  {
-    gdouble prev_speed_x = abs(point->speed_x);
-    gdouble prev_speed_y = abs(point->speed_y);
-    gdouble prev_speed_z = abs(point->speed_z);
+    XIInput_XY       *input_xy = (XIInput_XY*)      event->type_data;
+    XIDriveablePoint *point    = (XIDriveablePoint*)event->handler_data;
 
-    xi_drivable_point_mover_accel_decel(point, &point->speed_x, x_accel);
-    xi_drivable_point_mover_accel_decel(point, &point->speed_y, y_accel);
-    xi_drivable_point_mover_accel_decel(point, &point->speed_z, z_accel);
-
-    /* Enforce speed cap (max_speed) only if we are accelerating */
-    if(abs(point->speed_x) > prev_speed_x)
-      xi_drivable_point_mover_enforce_max_speed(point, &point->speed_x, &point->input_x);
-    if(abs(point->speed_y) > prev_speed_y)
-      xi_drivable_point_mover_enforce_max_speed(point, &point->speed_y, &point->input_y);
-    if(abs(point->speed_z) > prev_speed_z)
-      xi_drivable_point_mover_enforce_max_speed(point, &point->speed_z, &point->input_z);
+    if(input_xy != NULL && point != NULL) {
+      // LEFT_OFF: Need to be able to move the point diagonally
+      // Maybe store/compare the previous input_xy event to be able to
+      // perform the logic necessary to determine a diagonal movement.
+      point->input_x = input_xy->x;
+      point->input_y = input_xy->y;
+      g_debug("%s: point now {input_x=%g, input_y=%g, input_z=%g}",
+              __FUNCTION__, point->input_x, point->input_y, point->input_z);
+    }
   }
-
-  /* Move x, y, z (according to speed and elapsed time) */
-  point->x += point->speed_x * (point->seq->elapsed - point->seq->prev_elapsed);
-  point->y += point->speed_y * (point->seq->elapsed - point->seq->prev_elapsed);
-  point->x += point->speed_z * (point->seq->elapsed - point->seq->prev_elapsed);
-
-  xi_drivable_point_to_g_debug(point);
 }
 
 /*!
-  \brief Allow XIDrivablePoint to be controlled by input
+  \brief Allow XIDriveablePoint to be controlled by input
   \param point the point that will be updated by input
   \return TRUE on success
  */
 gboolean
-xi_connect_input_xy_to_drivable_point(XIDrivablePoint *point)
+xi_connect_input_xy_to_driveable_point(XISequence *seq, XIDriveablePoint *point)
 {
-  g_return_val_if_fail(point      != NULL, FALSE);
-  g_return_val_if_fail(point->seq != NULL, FALSE);
+  g_return_val_if_fail(seq   != NULL, FALSE);
+  g_return_val_if_fail(point != NULL, FALSE);
 
   /* Add a listener that will receive input events */
   // TODO: match with XI_INPUT_XY via Quark
   GHook *event_hook =
-    xi_sequence_add_listener(point->seq, XI_INPUT_EVENT, XI_INPUT_XY,
+    xi_sequence_add_listener(seq, XI_INPUT_EVENT, XI_INPUT_XY,
                              g_strdup("input_xy"),
-                             (GHookFunc)xi_handle_input_xy_for_drivable_point,
+                             (GHookFunc)xi_handle_input_xy_for_driveable_point,
                              point, NULL);
 
   /* Add a hook to sequence hooks that will update the point */
-  xi_sequence_setup_hooks_if_null(point->seq);
+  xi_sequence_setup_hooks_if_null(seq);
 
-  GHook *point_hook      = g_hook_alloc(point->seq->hooks);
-  point_hook->func       = xi_drivable_point_mover;
-  point_hook->data       = (gpointer)point;
-  point_hook->destroy    = NULL;
-  g_hook_append(point->seq->hooks, point_hook);
+  XIDriveablePointUpdate *update = xi_driveable_point_update_new();
+  update->point = point;
+  update->elapsed = &seq->elapsed;
+  GHook *update_point_hook   = g_hook_alloc(seq->hooks);
+  update_point_hook->func    = xi_driveable_point_update;
+  update_point_hook->data    = update;
+  update_point_hook->destroy = xi_driveable_point_update_free;
+  g_hook_append(seq->hooks, update_point_hook);
+
+  GHook *point_hook   = g_hook_alloc(seq->hooks);
+  point_hook->func    = xi_driveable_point_mover;
+  point_hook->data    = (gpointer)point;
+  point_hook->destroy = NULL;
+  g_hook_append(seq->hooks, point_hook);
 
   return(event_hook != NULL);
 }
@@ -268,10 +141,10 @@ xi_sequence_connect_input_to_camera_xy(XISequence *seq)
   g_return_val_if_fail(seq != NULL, FALSE);
 
   if(seq->camera == NULL) {
-    seq->camera = xi_camera_new(seq);
+    seq->camera = xi_camera_new();
   }
 
-  xi_connect_input_xy_to_drivable_point(seq->camera->point);
+  xi_connect_input_xy_to_driveable_point(seq, seq->camera->point);
 }
 
 /*! \brief Sets the camera position on seq. New camera is created if NULL.
@@ -281,7 +154,7 @@ xi_sequence_set_camera(XISequence *seq, gdouble x, gdouble y, gdouble z) {
   g_return_if_fail(seq != NULL);
 
   if(seq->camera == NULL) {
-    seq->camera = xi_camera_new(seq);
+    seq->camera = xi_camera_new();
   }
 
   seq->camera->point->x = x;
@@ -290,39 +163,10 @@ xi_sequence_set_camera(XISequence *seq, gdouble x, gdouble y, gdouble z) {
 }
 
 void
-xi_drivable_point_free(XIDrivablePoint *point) {
-  if(point == NULL) return;
-  g_free(point);
-}
-
-void
 xi_camera_free(XICamera *camera) {
   if(camera == NULL) return;
-  xi_drivable_point_free(camera->point);
+  xi_driveable_point_free(camera->point);
   g_free(camera);
-}
-
-XIDrivablePoint*
-xi_drivable_point_copy(XIDrivablePoint *point) {
-  if(point == NULL) return NULL;
-
-  XIDrivablePoint *new_point = xi_drivable_point_new(NULL);
-
-  new_point->seq        = point->seq;
-  new_point->x          = point->x;
-  new_point->y          = point->y;
-  new_point->z          = point->z;
-  new_point->input_x    = point->input_x;
-  new_point->input_y    = point->input_y;
-  new_point->input_z    = point->input_z;
-  new_point->speed_x    = point->speed_x;
-  new_point->speed_y    = point->speed_y;
-  new_point->speed_z    = point->speed_z;
-  new_point->max_speed  = point->max_speed;
-  new_point->accel_rate = point->accel_rate;
-  new_point->decel_rate = point->decel_rate;
-
-  return new_point;
 }
 
 XICamera*
@@ -331,7 +175,7 @@ xi_camera_copy(XICamera *camera) {
 
   XICamera *new_camera = g_new(XICamera, 1);
 
-  new_camera->point = xi_drivable_point_copy(camera->point);
+  new_camera->point = xi_driveable_point_copy(camera->point);
 
   return new_camera;
 }

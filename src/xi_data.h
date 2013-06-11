@@ -17,28 +17,12 @@ pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 
 #include "xi_enums.h"
 #include "xi_error.h"
+#include "xi_points.h"
 
 /*****************************************************************************
 Primary Structs
 ******************************************************************************/
 
-// TODO: Rename input_* to pressure_*
-/* "Drive" a point (like a car) around using gas pedals (input_*) */
-typedef struct XIDrivablePoint {
-  struct XISequence *seq; /* Needed for elapsed time */
-  gdouble x; /* position */
-  gdouble y; /* position */
-  gdouble z; /* position */
-  gdouble input_x; /* Input pressure. percentage: 0.0 - 1.0 */
-  gdouble input_y; /* Input pressure. percentage: 0.0 - 1.0 */
-  gdouble input_z; /* Input pressure. percentage: 0.0 - 1.0 */
-  gdouble speed_x; /* Current speed */
-  gdouble speed_y; /* Current speed */
-  gdouble speed_z; /* Current speed */
-  gdouble max_speed; /* Max speed in any direction */
-  gdouble accel_rate; /* Max acceleration in any direction */
-  gdouble decel_rate; /* Max deceleration in any direction */
-} XIDrivablePoint;
 
 /* TODO: LEFT_OFF making camera controllable.
 
@@ -62,7 +46,7 @@ typedef struct XIDrivablePoint {
 
 */
 typedef union XICamera {
-  XIDrivablePoint *point;
+  XIDriveablePoint *point;
 } XICamera;
 
 typedef struct XIInput_XY {
@@ -284,7 +268,7 @@ XIDrawableFrames* xi_drawable_add_frames_copy(XIDrawable *drawable,
                                               XIDrawableFrames *frames);
 gboolean xi_position_adjust_for_camera(XIPosition *pos, XICamera *cam);
 void xi_sequence_set_camera(XISequence *seq, gdouble x, gdouble y, gdouble z);
-gboolean xi_sequence_attach_input_to_camera_xy(XISequence *seq);
+gboolean xi_sequence_connect_input_to_camera_xy(XISequence *seq);
 GHook* xi_sequence_add_listener(XISequence     *seq,
                                 XIEventType     evt_type,
                                 gint            evt_subtype,

@@ -1,3 +1,10 @@
+* Video Format that Preserves Original Audio
+Often I would like to throw all the videos and photos from a trip all
+together. Then I want to delete the individual videos to save
+space. However, this means that if I add music instead of the original
+video's audio then the vidoe audio is lost. It would be nice to have a
+video format that preserved the original audio and allowed the music
+to be turned off.
 * Scripting Support
 https://www.gnu.org/software/guile/
 http://www.gnu.org/software/guile-sdl/

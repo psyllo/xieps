@@ -82,7 +82,8 @@ am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libxieps_la_LIBADD =
 am_libxieps_la_OBJECTS = libxieps_la-xi_error.lo \
-	libxieps_la-xi_data.lo libxieps_la-xieps.lo
+	libxieps_la-xi_data.lo libxieps_la-xieps.lo \
+	libxieps_la-xi_points.lo
 libxieps_la_OBJECTS = $(am_libxieps_la_OBJECTS)
 libxieps_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(libxieps_la_CFLAGS) \
@@ -256,7 +257,7 @@ top_srcdir = @top_srcdir@
 
 # Build xieps as libtool lib
 lib_LTLIBRARIES = libxieps.la
-libxieps_la_SOURCES = xi_enums.h xi_error.c xi_error.h xi_data.c xi_data.h xieps.c xieps.h
+libxieps_la_SOURCES = xi_enums.h xi_error.c xi_error.h xi_data.c xi_data.h xieps.c xieps.h xi_points.c xi_points.h
 libxieps_la_CFLAGS = $(GLIB_CFLAGS)
 libxieps_la_LIBS = $(GLIB_LIBS)
 all: all-am
@@ -335,6 +336,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libxieps_la-xi_data.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libxieps_la-xi_error.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libxieps_la-xi_points.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libxieps_la-xieps.Plo@am__quote@
 
 .c.o:
@@ -378,6 +380,13 @@ libxieps_la-xieps.lo: xieps.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='xieps.c' object='libxieps_la-xieps.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libxieps_la_CFLAGS) $(CFLAGS) -c -o libxieps_la-xieps.lo `test -f 'xieps.c' || echo '$(srcdir)/'`xieps.c
+
+libxieps_la-xi_points.lo: xi_points.c
+@am__fastdepCC_TRUE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libxieps_la_CFLAGS) $(CFLAGS) -MT libxieps_la-xi_points.lo -MD -MP -MF $(DEPDIR)/libxieps_la-xi_points.Tpo -c -o libxieps_la-xi_points.lo `test -f 'xi_points.c' || echo '$(srcdir)/'`xi_points.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/libxieps_la-xi_points.Tpo $(DEPDIR)/libxieps_la-xi_points.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='xi_points.c' object='libxieps_la-xi_points.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libxieps_la_CFLAGS) $(CFLAGS) -c -o libxieps_la-xi_points.lo `test -f 'xi_points.c' || echo '$(srcdir)/'`xi_points.c
 
 mostlyclean-libtool:
 	-rm -f *.lo

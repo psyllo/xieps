@@ -2,7 +2,7 @@
 Often I would like to throw all the videos and photos from a trip all
 together. Then I want to delete the individual videos to save
 space. However, this means that if I add music instead of the original
-video's audio then the vidoe audio is lost. It would be nice to have a
+video's audio then the video audio is lost. It would be nice to have a
 video format that preserved the original audio and allowed the music
 to be turned off.
 * Scripting Support
@@ -44,10 +44,14 @@ forward frame
 backward frame
 play speed change
 
+Clojure-like persisten data structures would be a dream to have in
+this case. I drool for something like Datomic.
+
 * Pausing/Stopping
 Elapsed times will get screwed up with pausing. Need to design a way
 to pause and not allow the elapsed time to keep extending while
-paused.
+paused. Actually it's probably useful to have two separate times
+available. RunElapsed vs TrueElapsed.
 * Attach Game to Emacs with Swank
 To drastically increase development speed allow Emacs to connect to
 the game and control over sockets.
@@ -57,12 +61,11 @@ project. The player would be vastly more simple and easier to
 port.
 
 Separation in this way opens the door for different player
-implementations such as a web based one (possibly ClojureScript /
-ClojureScript One). The player could be a single threaded C/SDL
-project. The Editor/Composer could be a Clojure project. In Clojure it
-will be vastly easier to implement scrubbing and other complex
-features given it's support for concurrency and it's handy data
-structures.
+implementations such as a web based one (possibly Pedestal). The
+player could be a single threaded C/SDL project. The Editor/Composer
+could be a Clojure project. In Clojure it will be vastly easier to
+implement scrubbing and other complex features given its support for
+concurrency and it's handy data structures.
 
 The Editor/Composer can then export some XML or JSON which the player
 will use. The data file does not need to be human editable, but would
@@ -71,7 +74,9 @@ but it would still run on all major Desktop OS's, just not mobile
 platforms, which is not a current requirement.
 
 The file produced by the editor could have the feature of being able
-to leap to any arbitrary point along a sequence timeline.
+to leap to any arbitrary point along a sequence timeline. Which
+doesn't make sense in a branching story the requires decisions along
+the way, unless prepopulate decisions.
 
 Programming _code_ could be user friendly, but it produces _data_ that
 is optimized for the player. The data file could be larger and more
@@ -81,11 +86,12 @@ read it and jump forward and backward.
 In the code, you can't know the future until the code runs through,
 but in the data file the future is known.
 
-The down side to this sort of data file is that it would vastly limit
-any dynamic content and non-linear games. A simple choose between door
-A and door B would be okay be easy using links. However, dynamic
-content, such as a user having a choice to pick up an item or not,
-would not be possible without more complex data file features.
+As mentioned before, the down side to this sort of data file is that
+it would vastly limit any dynamic content and non-linear games. A
+simple choose between door A and door B would be okay be easy using
+links. However, dynamic content, such as a user having a choice to
+pick up an item or not, would not be possible without more complex
+data file features.
 * Persistent Data Structures - Concurrency - Timeline Scrubbing
     In considering support scrubbing (fast forward, rewind, leap to
     any point) my thinking lead me all the way to CAS, MVCC,
@@ -95,7 +101,7 @@ would not be possible without more complex data file features.
     don't feel I need all of those features to accomplish this
     scrubbing capability.
 
-    - Fast Forward... highly granular, no jumping.
+    - Fast Forward... highly granular rather than jumpy.
 
     - Rewind, can be jumpy. Like save points. Playing in reverse is
     not a requirement, but jumping backwards is (a subtle difference).
@@ -121,18 +127,18 @@ would not be possible without more complex data file features.
     play if some event gets fired it is not necessarily true that the
     equal and opposite event will occur if played in reverse. In
     addition, if one object splits into 3, there is no
-    "reverse-that-please" function to make those 3 objects become
-    one again. We aren't going to impose on the user the requirement that
-    everything that occurs must be reversible simply because we want to
-    jump backwards sometimes. In other words Humpty Dumpty falls off a
-    wall and shatters into 1000 pieces, you cannot put him back
+    "reverse-that-please" function to make those 3 objects become one
+    again. We aren't going to impose on the user the requirement that
+    everything that occurs must be reversible simply because we want
+    to jump backwards sometimes. In other words Humpty Dumpty falls
+    off a wall and shatters into 1000 pieces, you cannot put him back
     together again by jumping backwards.
 
     3) Since jumping and skipping the calculation of steps is not
     plausible all steps must be calculated. To achieve fast forward
     and rewind then it seems obvious that we must record the game
     state as certain intervals to allow the user to jump to those save
-    points. Whe the player starts it can remember parts of the past
+    points. When the player starts it can remember parts of the past
     and buffer the future up to n seconds. The game state calculator
     function will likely take two arguments, a game state object and a
     positive unsigned integer that is the elapsed time into the future
@@ -156,6 +162,12 @@ would not be possible without more complex data file features.
     predictable playback. So, asynchronous features are far lower in
     priority than predictable playback.
 
+    4b) It may simply be unreasonable to implement because of events
+    and sounds that occur. If it was just video we were talking about
+    then this may be reasonable, but since a menu might pop-up when
+    the sequence is over if the sequence was being played faster in
+    the background (buffered) a menu would pop-up prematurely.
+
     5) Copying the entire data structure that is the state of the game
     every n seconds may be too big of a performance hit at design
     time. To solve this problem persistent data structures could be
@@ -174,7 +186,7 @@ would not be possible without more complex data file features.
     5c) Rolling my own persistent data structure might be the way to
     go. Using an existing STM or MVCC stuff might be overkill when all
     I want to do is maintain separate copies of single data structure
-    effeciently. I might not even can about doing concurrent
+    effeciently. I might not even care about doing concurrent
     writes. Concurrent reads should be supported though, which can
     easily be accomplished if the data structure is updated using CAS
     (conveniently available in Glib).
@@ -185,7 +197,7 @@ would not be possible without more complex data file features.
     http://blog.higher-order.net/2009/09/08/understanding-clojures-persistenthashmap-deftwice/
 
 * Maybe incorporate Libevent
-http://libevent.org/
+  http://libevent.org/
 * Parallax and Snap-Together corners
 See: http://vimeo.com/64096712
 Being able to say:
@@ -199,7 +211,7 @@ a single image to be constructed of several images. This is the idea
 behind composite images as it is currently anyway, so this is already
 taken into consideration into the code, but it may have more
 applications.
-* Upport multiple running scenes/stories with frames/borders.
+* Support multiple running scenes/stories with frames/borders.
 Side-by-side and/or boxed scenes should be supported and easy to use.
 
 Peudo-code:

@@ -1,6 +1,5 @@
 #include "xi_sdl.h"
 
-FPSmanager fpsm;
 gboolean loop_running = TRUE;
 gdouble elapsed = 0.0;
 Uint32 elapsed_diff = 0;
@@ -150,6 +149,7 @@ xi_sdl_start_main_loop(XISdlLoopFn  loop_fn,
                        gpointer     data)
 {
   SDL_Event event;
+  FPSmanager fpsm;
 
   SDL_initFramerate(&fpsm);
   SDL_setFramerate(&fpsm, framerate);

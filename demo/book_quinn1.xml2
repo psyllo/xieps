@@ -1,0 +1,23 @@
+<xi xml_version="0.0.1">
+  <book name="quinn1"
+        revision="0.1">
+    <title>Quinn Goes Hiking</title>
+    <splash sequence="@seq_splash"></splash>
+    <sequences>
+      <sequence name="seq_splash">
+        <page name="@page_splash_01"></page>
+      </sequence>
+    </sequences>
+    <stories>
+      <story name="story_1">
+        <page name="@page_001"></page>
+      </story>
+    </stories>
+    <pages>
+      <page name="page_splash_01">
+      </page>
+      <page name="page_001">
+      </page>
+    </pages>
+  </book>
+</xi>

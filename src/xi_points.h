@@ -16,9 +16,15 @@ typedef struct XIDriveablePoint {
   gdouble x; /* position */
   gdouble y; /* position */
   gdouble z; /* position */
-  gdouble input_x; /* Input pressure. percentage: 0.0 - 1.0 */
-  gdouble input_y; /* Input pressure. percentage: 0.0 - 1.0 */
-  gdouble input_z; /* Input pressure. percentage: 0.0 - 1.0 */
+  gdouble input_x; /* Input pressure. percentage: -1.0 to 1.0 */
+  gdouble input_y; /* Input pressure. percentage: -1.0 to 1.0 */
+  gdouble input_z; /* Input pressure. percentage: -1.0 to 1.0 */
+  gdouble input_up;    /* Input pressure. percentage: 0.0 to 1.0 */
+  gdouble input_down;  /* Input pressure. percentage: 0.0 to 1.0 */
+  gdouble input_left;  /* Input pressure. percentage: 0.0 to 1.0 */
+  gdouble input_right; /* Input pressure. percentage: 0.0 to 1.0 */
+  gdouble input_in;    /* Input pressure. percentage: 0.0 to 1.0 */
+  gdouble input_out;   /* Input pressure. percentage: 0.0 to 1.0 */
   gdouble speed_x; /* Current speed */
   gdouble speed_y; /* Current speed */
   gdouble speed_z; /* Current speed */

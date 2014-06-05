@@ -65,12 +65,19 @@ XIInput_XY*
 xi_input_xy_new()
 {
   XIInput_XY *ixy = g_new(XIInput_XY, 1);
-  ixy->x = 0;
-  ixy->y = 0;
+  ixy->up    = 0;
+  ixy->down  = 0;
+  ixy->left  = 0;
+  ixy->right = 0;
+  ixy->up_changed    = FALSE;
+  ixy->down_changed  = FALSE;
+  ixy->left_changed  = FALSE;
+  ixy->right_changed = FALSE;
   return ixy;
 }
 
 /*!
+  Where XIInput_XY and XIDriveablePoint meet.
  */
 void
 xi_handle_input_xy_for_driveable_point(XIEvent *event)
@@ -84,11 +91,23 @@ xi_handle_input_xy_for_driveable_point(XIEvent *event)
     XIDriveablePoint *point    = (XIDriveablePoint*)event->handler_data;
 
     if(input_xy != NULL && point != NULL) {
-      // LEFT_OFF: Need to be able to move the point diagonally
-      // Maybe store/compare the previous input_xy event to be able to
-      // perform the logic necessary to determine a diagonal movement.
-      point->input_x = input_xy->x;
-      point->input_y = input_xy->y;
+      if(input_xy->up_changed == TRUE) {
+	point->input_y = input_xy->up - point->input_down;
+	point->input_up = input_xy->up;
+      }
+      if(input_xy->down_changed == TRUE) {
+	  point->input_y = -input_xy->down + point->input_up;
+	  point->input_down = input_xy->down;
+      }
+      if(input_xy->left_changed == TRUE) {
+	point->input_x = input_xy->left - point->input_right;
+	point->input_left = input_xy->left;
+      }
+      if(input_xy->right_changed == TRUE) {
+	  point->input_x = -input_xy->right + point->input_left;
+	  point->input_right = input_xy->right;
+      }
+
       g_debug("%s: point now {input_x=%g, input_y=%g, input_z=%g}",
               __FUNCTION__, point->input_x, point->input_y, point->input_z);
     }

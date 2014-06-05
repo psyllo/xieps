@@ -44,7 +44,7 @@ forward frame
 backward frame
 play speed change
 
-Clojure-like persisten data structures would be a dream to have in
+Clojure-like persistent data structures would be a dream to have in
 this case. I drool for something like Datomic.
 
 * Pausing/Stopping
@@ -65,7 +65,7 @@ implementations such as a web based one (possibly Pedestal). The
 player could be a single threaded C/SDL project. The Editor/Composer
 could be a Clojure project. In Clojure it will be vastly easier to
 implement scrubbing and other complex features given its support for
-concurrency and it's handy data structures.
+concurrency and its handy data structures.
 
 The Editor/Composer can then export some XML or JSON which the player
 will use. The data file does not need to be human editable, but would
@@ -146,7 +146,7 @@ data file features.
     out of a memory of saved states that were saved at certain
     intervals (every 1 or 2 seconds perhaps).
 
-    4) The challenge of playing the game faster that it was designed
+    4) The challenge of playing the game faster than it was designed
     to be played in order to buffer into the future presents a few
     challenges.
 

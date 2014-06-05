@@ -50,8 +50,14 @@ typedef union XICamera {
 } XICamera;
 
 typedef struct XIInput_XY {
-  gdouble x; /*! Input pressure. Percentage: 0.0 - 1.0 */
-  gdouble y; /*! Input pressure. Percentage: 0.0 - 1.0 */
+  gdouble  up;    /*! Input pressure. Percentage: 0.0 - 1.0 */
+  gboolean up_changed;
+  gdouble  down;  /*! Input pressure. Percentage: 0.0 - 1.0 */
+  gboolean down_changed;
+  gdouble  left;  /*! Input pressure. Percentage: 0.0 - 1.0 */
+  gboolean left_changed;
+  gdouble  right;  /*! Input pressure. Percentage: 0.0 - 1.0 */
+  gboolean right_changed;
 } XIInput_XY;
 
 typedef struct XIInput_Z {

@@ -234,30 +234,34 @@ xisp_event_convert_keyboard_directional_to_xi_input_xy(SDL_Event *sdl_event)
   g_return_val_if_fail(sdl_event != NULL, NULL);
   g_return_val_if_fail(xisp_sdl_event_is_keyboard_directional(sdl_event), NULL);
 
-  XIInput_XY *input_xy = xi_input_xy_new();;
+  XIInput_XY *input_xy = xi_input_xy_new();
   SDLKey sym = sdl_event->key.keysym.sym;
   Uint8 key_state = sdl_event->key.state;
 
   if(sym == SDLK_LEFT) {
+    input_xy->left_changed = TRUE;
     if(key_state == SDL_PRESSED)
-      input_xy->x = 1.0;
-    else
-      input_xy->x = 0.0;
+      input_xy->left = 1.0;
+    else if(key_state == SDL_RELEASED)
+      input_xy->left = 0.0;
   }else if(sym == SDLK_RIGHT) {
+    input_xy->right_changed = TRUE;
     if(key_state == SDL_PRESSED)
-      input_xy->x = -1.0;
-    else
-      input_xy->x = 0.0;
+      input_xy->right = 1.0;
+    else if(key_state == SDL_RELEASED)
+      input_xy->right = 0.0;
   }else if(sym == SDLK_UP) {
+    input_xy->up_changed = TRUE;
     if(key_state == SDL_PRESSED)
-      input_xy->y = 1.0;
-    else
-      input_xy->y = 0.0;
+      input_xy->up = 1.0;
+    else if(key_state == SDL_RELEASED)
+      input_xy->up = 0.0;
   }else if(sym == SDLK_DOWN) {
+    input_xy->down_changed = TRUE;
     if(key_state == SDL_PRESSED)
-      input_xy->y = -1.0;
-    else
-      input_xy->y = 0.0;
+      input_xy->down = 1.0;
+    else if(key_state == SDL_RELEASED)
+      input_xy->down = 0.0;
   }
 
   XIEvent *event = xi_event_new_empty(XI_INPUT_EVENT);

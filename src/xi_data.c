@@ -1855,7 +1855,7 @@ xi_sequence_drawables_position_update(XISequence *seq)
     while(g_hash_table_iter_next(&iter, &key, &value)) {
       XIDrawable *d = value;
       if(d != NULL) {
-        if(xi_position_update(d->pos, seq->camera)) {
+        if(xi_position_update(d->pos, NULL)) {
           result = TRUE;
 	}
       }else{

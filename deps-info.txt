@@ -1,0 +1,66 @@
+To find deps run ./configure
+Then find the package with:
+
+apt-cache search <part of package name>
+
+git
+build-essential
+gettext
+autopoint
+autotools-dev
+autoconf
+libtool
+
+libsdl-dev
+libsdl2-dev
+libsdl-image1.2-dev
+libsdl-mixer1.2-dev
+
+libsdl-gfx (manual install):
+
+Since 2.0.24 is not in an Ubuntu package You will probably have to
+install SDL_gfx 2.0.24 from the tarball.
+http://www.ferzkopp.net/Software/SDL_gfx-2.0/SDL_gfx-2.0.24.tar.gz
+
+Before you install modify the configure script to point the the correct
+installation prefix directory. It wants to go to /usr/local but I change it
+to /usr for Ubuntu.
+Then ./configure && make && sudo make install
+
+The resulting text should be like:
+ben@ben-VirtualBox:~/Downloads/SDL_gfx-2.0.24$ sudo make install
+make[1]: Entering directory `/home/ben/Downloads/SDL_gfx-2.0.24'
+test -z "/usr/lib" || /bin/mkdir -p "/usr/lib"
+ /bin/bash ./libtool   --mode=install /usr/bin/install -c   libSDL_gfx.la '/usr/lib'
+libtool: install: /usr/bin/install -c .libs/libSDL_gfx.so.14.9.1 /usr/lib/libSDL_gfx.so.14.9.1
+libtool: install: (cd /usr/lib && { ln -s -f libSDL_gfx.so.14.9.1 libSDL_gfx.so.14 || { rm -f libSDL_gfx.so.14 && ln -s libSDL_gfx.so.14.9.1 libSDL_gfx.so.14; }; })
+libtool: install: (cd /usr/lib && { ln -s -f libSDL_gfx.so.14.9.1 libSDL_gfx.so || { rm -f libSDL_gfx.so && ln -s libSDL_gfx.so.14.9.1 libSDL_gfx.so; }; })
+libtool: install: /usr/bin/install -c .libs/libSDL_gfx.lai /usr/lib/libSDL_gfx.la
+libtool: install: /usr/bin/install -c .libs/libSDL_gfx.a /usr/lib/libSDL_gfx.a
+libtool: install: chmod 644 /usr/lib/libSDL_gfx.a
+libtool: install: ranlib /usr/lib/libSDL_gfx.a
+libtool: finish: PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/sbin" ldconfig -n /usr/lib
+----------------------------------------------------------------------
+Libraries have been installed in:
+   /usr/lib
+
+If you ever happen to want to link against installed libraries
+in a given directory, LIBDIR, you must either use libtool, and
+specify the full pathname of the library, or use the `-LLIBDIR'
+flag during linking and do at least one of the following:
+   - add LIBDIR to the `LD_LIBRARY_PATH' environment variable
+     during execution
+   - add LIBDIR to the `LD_RUN_PATH' environment variable
+     during linking
+   - use the `-Wl,-rpath -Wl,LIBDIR' linker flag
+   - have your system administrator add LIBDIR to `/etc/ld.so.conf'
+
+See any operating system documentation about shared libraries for
+more information, such as the ld(1) and ld.so(8) manual pages.
+----------------------------------------------------------------------
+test -z "/usr/include/SDL" || /bin/mkdir -p "/usr/include/SDL"
+ /usr/bin/install -c -m 644 SDL_gfxPrimitives.h SDL_gfxPrimitives_font.h SDL_rotozoom.h SDL_framerate.h SDL_imageFilter.h SDL_gfxBlitFunc.h '/usr/include/SDL'
+test -z "/usr/lib/pkgconfig" || /bin/mkdir -p "/usr/lib/pkgconfig"
+ /usr/bin/install -c -m 644 SDL_gfx.pc '/usr/lib/pkgconfig'
+make[1]: Leaving directory `/home/ben/Downloads/SDL_gfx-2.0.24'
+ben@ben-VirtualBox:~/Downloads/SDL_gfx-2.0.24$ 

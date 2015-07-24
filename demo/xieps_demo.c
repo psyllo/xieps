@@ -20,7 +20,7 @@ demo_build_entire_story()
   XISequence *intro = xi_sequence_add_child(story->root_seq, "intro1");
   intro->pos->x = 20;
   intro->pos->y = 30;
-  xi_sequence_set_camera(intro, -20, -21, 0);
+  xi_sequence_set_camera(intro, 0, 0, 0);
 
   // TODO: LEFT_OFF
   xi_sequence_connect_input_to_camera_xy(intro);
@@ -46,7 +46,7 @@ demo_build_entire_story()
 
 
   XIDrawableFrames *tip_hat
-    = xi_drawable_add_drawable_frames(hero, "tip_hat", 6);
+    = xi_drawable_add_drawable_frames(hero, "tip_hat", 7);
 
   xi_drawable_frames_set(tip_hat, 0, .x=000, .y=0, .h=95, .w=50, .duration=1);
   xi_drawable_frames_set(tip_hat, 1, .x=061, .y=0, .h=95, .w=60, .duration=0.1);

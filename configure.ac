@@ -68,6 +68,8 @@ PKG_PROG_PKG_CONFIG
 PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.32.3])
 PKG_CHECK_MODULES([SDL], [sdl >= 1.2.12])
 PKG_CHECK_MODULES([SDL_GFX], [SDL_gfx >= 2.0.24])
+# Ubuntu does not package it 2.0.24 and I am using features of .24
+# but those features aren't irreplaceable
 PKG_CHECK_MODULES([SDL_IMAGE], [SDL_image >= 1.2.12])
 PKG_CHECK_MODULES([SDL_MIXER], [SDL_mixer >= 1.2.12])
 

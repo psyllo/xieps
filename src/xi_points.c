@@ -80,22 +80,26 @@ void
 xi_driveable_point_to_g_debug(XIDriveablePoint *point)
 {
   g_debug("XIDriveablePoint {");
-  g_debug(" x           = %g", point->x);
-  g_debug(" y           = %g", point->y);
-  g_debug(" z           = %g", point->z);
-  g_debug(" input_up    = %g", point->input_up);
-  g_debug(" input_down  = %g", point->input_down);
-  g_debug(" input_left  = %g", point->input_left);
-  g_debug(" input_right = %g", point->input_right);
-  g_debug(" input_in    = %g", point->input_in);
-  g_debug(" input_out   = %g", point->input_out);
-  g_debug(" input_x     = %g", point->input_x);
-  g_debug(" speed_x     = %g", point->speed_x);
-  g_debug(" speed_y     = %g", point->speed_y);
-  g_debug(" speed_z     = %g", point->speed_z);
-  g_debug(" max_speed   = %g", point->max_speed);
-  g_debug(" accel_rate  = %g", point->accel_rate);
-  g_debug(" decel_rate  = %g", point->decel_rate);
+  g_debug(" x            = %g", point->x);
+  g_debug(" y            = %g", point->y);
+  g_debug(" z            = %g", point->z);
+  g_debug(" input_x      = %g", point->input_x);
+  g_debug(" input_y      = %g", point->input_y);
+  g_debug(" input_z      = %g", point->input_z);
+  g_debug(" input_up     = %g", point->input_up);
+  g_debug(" input_down   = %g", point->input_down);
+  g_debug(" input_left   = %g", point->input_left);
+  g_debug(" input_right  = %g", point->input_right);
+  g_debug(" input_in     = %g", point->input_in);
+  g_debug(" input_out    = %g", point->input_out);
+  g_debug(" speed_x      = %g", point->speed_x);
+  g_debug(" speed_y      = %g", point->speed_y);
+  g_debug(" speed_z      = %g", point->speed_z);
+  g_debug(" max_speed    = %g", point->max_speed);
+  g_debug(" accel_rate   = %g", point->accel_rate);
+  g_debug(" decel_rate   = %g", point->decel_rate);
+  g_debug(" elapsed      = %g", point->elapsed);
+  g_debug(" prev_elapsed = %g", point->prev_elapsed);
   g_debug("}");
 }
 

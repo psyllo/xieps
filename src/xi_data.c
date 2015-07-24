@@ -90,27 +90,28 @@ xi_handle_input_xy_for_driveable_point(XIEvent *event)
     XIInput_XY       *input_xy = (XIInput_XY*)      event->type_data;
     XIDriveablePoint *point    = (XIDriveablePoint*)event->handler_data;
 
-    if(input_xy != NULL && point != NULL) {
-      if(input_xy->up_changed == TRUE) {
-	point->input_y = input_xy->up - point->input_down;
-	point->input_up = input_xy->up;
-      }
-      if(input_xy->down_changed == TRUE) {
-	  point->input_y = -input_xy->down + point->input_up;
-	  point->input_down = input_xy->down;
-      }
-      if(input_xy->left_changed == TRUE) {
-	point->input_x = input_xy->left - point->input_right;
-	point->input_left = input_xy->left;
-      }
-      if(input_xy->right_changed == TRUE) {
-	  point->input_x = -input_xy->right + point->input_left;
-	  point->input_right = input_xy->right;
-      }
+    g_return_if_fail(input_xy != NULL);
+    g_return_if_fail(point != NULL);
 
-      g_debug("%s: point now {input_x=%g, input_y=%g, input_z=%g}",
-              __FUNCTION__, point->input_x, point->input_y, point->input_z);
+    if(input_xy->up_changed == TRUE) {
+      point->input_y = input_xy->up - point->input_down;
+      point->input_up = input_xy->up;
     }
+    if(input_xy->down_changed == TRUE) {
+      point->input_y = -input_xy->down + point->input_up;
+      point->input_down = input_xy->down;
+    }
+    if(input_xy->left_changed == TRUE) {
+      point->input_x = input_xy->left - point->input_right;
+      point->input_left = input_xy->left;
+    }
+    if(input_xy->right_changed == TRUE) {
+      point->input_x = -input_xy->right + point->input_left;
+      point->input_right = input_xy->right;
+    }
+
+    g_debug("%s: point now {input_x=%g, input_y=%g, input_z=%g}",
+	    __FUNCTION__, point->input_x, point->input_y, point->input_z);
   }
 }
 
@@ -1701,6 +1702,8 @@ xi_add_fade_to_black_copy(XISequence *seq, XIData_fade_to_black *data)
 Other
 ******************************************************************************/
 /*!
+  \param pos target of modifcation
+  \param camera an optional camera factor
   \return TRUE if either screen_x, screen_y or screen_z were modified.
 */
 gboolean
@@ -1729,7 +1732,7 @@ xi_position_update(XIPosition *pos, XICamera *camera)
     pos->screen_z = pos->z;
   }
 
-  gboolean changed =  prev_x != pos->screen_x || prev_y != pos->screen_y || prev_z != pos->screen_z;
+  gboolean changed = prev_x != pos->screen_x || prev_y != pos->screen_y || prev_z != pos->screen_z;
 
   gboolean cam = xi_position_adjust_for_camera(pos, camera);
 
@@ -1854,7 +1857,7 @@ xi_sequence_drawables_position_update(XISequence *seq)
       if(d != NULL) {
         if(xi_position_update(d->pos, seq->camera)) {
           result = TRUE;
-        }
+	}
       }else{
         g_warning(_("%s: NULL drawable found in seq '%s'"),
                   __FUNCTION__, seq->instance_name);
@@ -1934,7 +1937,7 @@ xi_sequence_update(XISequence *seq, gdouble parent_elapsed)
     return;
   }
 
-  /* Are we still waiting for a start event? */
+  /* Are we waiting for a start event? */
   if(seq->start_on != NULL) {
     return;
   }
@@ -1946,7 +1949,7 @@ xi_sequence_update(XISequence *seq, gdouble parent_elapsed)
 
     Zero is allowed. The update should continue even if the elapsed
     time is zero. What this means for each piece is respective to that
-    peice, but each piece should take a zero duration into account
+    piece, but each piece should take a zero duration into account
     even if it just means to do nothing.
 
   */
@@ -2012,7 +2015,7 @@ xi_sequence_update(XISequence *seq, gdouble parent_elapsed)
     what. An 'ignore-if-skipped event'. A 'superseded-by' feature of
     an event for cases where two events get fired but one supersedes
     the other (perhaps they're the same event fired at different
-    times and the latter event should always win).
+    times and the later event should always win).
 
     - The common scenario: In almost every case the end of a duration
     falls between two update calls. This is also true for the start
@@ -2033,7 +2036,7 @@ xi_sequence_update(XISequence *seq, gdouble parent_elapsed)
     A few observations:
 
     1. The 'done' event gets fired after sequence is done, but not
-    precisely at the end of the duration. The start end end events
+    precisely at the end of the duration. The start and end events
     will be delayed. The event object should perhaps include an
     elapsed time firing to better inform the event handler. (Or the
     sequence object could be examined to determine the same thing

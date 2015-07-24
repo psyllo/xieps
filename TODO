@@ -1,3 +1,7 @@
+* Documentation format considerations
+Doxygen style tags are in the code, can Devhelp work with this as well?
+* Consider D-Bus for IPC
+If the project grows and needs to be broken into components, D-Bus should be considered.
 * Video Format that Preserves Original Audio
 Often I would like to throw all the videos and photos from a trip all
 together. Then I want to delete the individual videos to save

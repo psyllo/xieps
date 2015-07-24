@@ -111,6 +111,9 @@ xisp_sound_all(XIStory *story, GSequence *sounds)
   */
 }
 
+/*
+  Put all drawables and sounds into flat lists. Drawables are sorted by Z.
+ */
 void
 xisp_get_action_lists(XISequence *seq,
                       GSequence *drawables,

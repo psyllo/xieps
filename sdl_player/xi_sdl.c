@@ -155,7 +155,9 @@ xi_sdl_start_main_loop(XISdlLoopFn  loop_fn,
   SDL_setFramerate(&fpsm, framerate);
   framerate = SDL_getFramerate(&fpsm);
 
+  gint i = 0;
   while(loop_running == TRUE) {
+    g_debug(_("%s: loop iteration %d"), __FUNCTION__, i++);
     elapsed_diff = SDL_framerateDelay(&fpsm); /* delay to fixed rate */
     elapsed += elapsed_diff / 1000.0;
     while(SDL_PollEvent(&event)) {

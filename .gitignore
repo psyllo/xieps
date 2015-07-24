@@ -1,4 +1,5 @@
 Makefile
+Makefile.in
 TAGS
 po/
 *.o
@@ -12,6 +13,11 @@ tests/xieps_test
 sdl_player/xieps_sdl_player
 autom4te.cache
 config.h
+config.h.in~
 config.status
+configure
 doxygen-output
 libtool
+m4/
+build-aux
+aclocal.m4

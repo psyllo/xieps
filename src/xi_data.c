@@ -201,7 +201,7 @@ xi_camera_copy(XICamera *camera) {
 }
 
 /*!
-  TODO: Make this works with a negative elapsed.
+  TODO: Make this work with a negative elapsed.
   \return newly allocated rect
 */
 XIRect*
@@ -771,7 +771,11 @@ xi_sequence_fire_event_full(XISequence *source_seq,
 
   g_debug(_("%s: there are listeners"), __FUNCTION__);
 
+  // TODO: When are event->name and evt->name getting destroyed?
+  // Is it correct to g_strdup(event_name) here?
+
   XIEvent *evt = xi_event_new(source_seq, evt_type, evt_subtype,
+                              .name=g_strdup(event_name),
                               .when=when, .x=x, .y=y, .z=z, .speed=speed,
                               .type_data         = type_data,
                               .type_data_destroy = type_data_destroy);
@@ -1262,13 +1266,16 @@ xi_deep_copy_sequence(XISequence* src)
   new_seq->camera           = xi_camera_copy(        src->camera);
   new_seq->start_at         =                        src->start_at;
   new_seq->start_on         = g_strdup(              src->start_on);
+  new_seq->start_on_fired   =                        src->start_on_fired;
+  new_seq->start_asap       =                        src->start_asap;
   new_seq->started          =                        src->started;
+  new_seq->restartable      =                        src->restartable;
+  new_seq->done             =                        src->done;
   new_seq->duration         =                        src->duration;
   new_seq->duration_type    =                        src->duration_type;
   new_seq->rate             =                        src->rate;
   new_seq->elapsed          =                        src->elapsed;
   new_seq->prev_elapsed     =                        src->prev_elapsed;
-  new_seq->done             =                        src->done;
   new_seq->listeners        = NULL;
   new_seq->event_mask       =                        src->event_mask;
 
@@ -1371,9 +1378,37 @@ xi_deep_copy_sequence(XISequence* src)
   return new_seq;
 }
 
-/*! Start the sequence that is the event->handler_data. Makes the
-  sequence indistinguishable from sequences that weren't started by
-  the 'start_on' event feature.
+
+/**
+  Elapsed Time:
+
+  Should be the time elapsed since the start of this sequence.
+
+  Zero is allowed. The update should continue even if the elapsed
+  time is zero. What this means for each piece is respective to that
+  piece, but each piece should take a zero duration into account
+  even if it just means to do nothing.
+
+  \return elapsed Any non-negative result represents an elapsed time
+*/
+gboolean
+xi_reached_start_at(gdouble *out_elapsed, XISequence *seq, gdouble parent_elapsed)
+{
+  g_return_val_if_fail(seq != NULL, FALSE);
+
+  gboolean result = FALSE;
+  gdouble elapsed = parent_elapsed - seq->start_at;
+
+  if(seq->start_at > 0 && elapsed >= 0) {
+    result = TRUE;
+  }
+
+  if(out_elapsed != NULL) *out_elapsed = elapsed; // TODO: does this copy the value?
+
+  return result;
+}
+
+/*! Start the sequence that is the event->handler_data.
 
   \param event that should have an XISequence for the 'handler_data' field.
 */
@@ -1386,20 +1421,15 @@ xi_sequence_start_standard_event_handler(gpointer event)
   XIEvent *evt = (XIEvent*)event;
   if(evt->handler_data != NULL) {
     XISequence *hook_seq = (XISequence*)evt->handler_data;
-    if(hook_seq->start_on != NULL) {
-      g_free(hook_seq->start_on);
-      hook_seq->start_on = NULL;
-    }else{
-      g_warning(_("%s: Did not expect 'start_on' to be NULL in seq '%s'"),
-                __FUNCTION__, hook_seq->instance_name);
-    }
+    hook_seq->start_on_fired = TRUE;
     if(hook_seq->parent != NULL) {
 
       /* 'start_at' will be the current elapsed time of the parent
-         minus an optional adjustment, 'when', which is intended to be
-         a negative number.
+         minus an optional adjustment 'when' (negative) to factor in
+         how long ago the event fired (usually a small fraction of a
+         second).
       */
-      hook_seq->start_at = evt->when + hook_seq->parent->elapsed;
+      hook_seq->start_at += evt->when + hook_seq->parent->elapsed;
 
       g_debug(_("%s: event hook_seq={'%s', start_at=%g, elapsed=%g, parent->elapsed=%g, when=%g}"),
               __FUNCTION__, hook_seq->instance_name,
@@ -1621,6 +1651,9 @@ xi_deep_copy_fade_to_black_data(XIData_fade_to_black* data)
   data_copy->alpha           = data->alpha;
   data_copy->start_at        = data->start_at;
   data_copy->start_on        = g_strdup(data->start_on);
+  data_copy->start_on_fired  = data->start_on_fired;
+  data_copy->start_asap      = data->start_asap;
+  data_copy->restartable     = data->restartable;
   data_copy->duration        = data->duration;
   data_copy->rate            = data->rate;
   data_copy->fps             = data->fps;
@@ -1650,6 +1683,9 @@ xi_add_fade_to_black_copy(XISequence *seq, XIData_fade_to_black *data)
                           .name          = name,
                           .start_at      = data_copy->start_at,
                           .start_on      = data_copy->start_on,
+                          .start_on_fired = data_copy->start_on_fired,
+                          .start_asap    = data_copy->start_asap,
+                          .restartable   = data_copy->restartable,
                           .duration      = data_copy->duration,
                           .duration_type = XI_DURATION_TRUNCATE,
                           .rate          = data_copy->rate);
@@ -1767,13 +1803,16 @@ xi_dump_sequence(XISequence *seq)
   g_message(" XISequence *parent           = {address=%p}", seq->parent);
   g_message(" gdouble start_at             = %g", seq->start_at);
   g_message(" gchar *start_on              = %s", seq->start_on);
+  g_message(" gboolean start_on_fired      = %d", seq->start_on_fired);
+  g_message(" gboolean start_asap          = %d", seq->start_asap);
   g_message(" gboolean started             = %d", seq->started);
+  g_message(" gboolean restartable         = %d", seq->restartable);
+  g_message(" gboolean done                = %d", seq->done);
   g_message(" gdouble duration             = %g", seq->duration);
   g_message(" XIDurationType duration_type = %d", seq->duration_type);
   g_message(" gdouble rate                 = %g", seq->rate);
   g_message(" gdouble elapsed              = %g", seq->elapsed);
   g_message(" gdouble prev_elapsed         = %g", seq->prev_elapsed);
-  g_message(" gboolean done                = %d", seq->done);
   g_message(" GHashTable *children:");
   xi_dump_ghashtable(seq->children);
   g_message(" gchar *state_name    = \"%s\"", seq->state_name);
@@ -1816,6 +1855,12 @@ xi_init_story(XIStory *story, guint curr_w, guint curr_h, guint curr_bpp)
   story->curr_bpp = curr_bpp;
 
   return TRUE;
+}
+
+void xi_start_story_asap(XIStory *story) {
+  g_return_if_fail(story != NULL);
+  g_return_if_fail(story->root_seq != NULL);
+  story->root_seq->start_asap = TRUE;
 }
 
 void
@@ -1886,7 +1931,18 @@ xi_position_adjust_for_camera(XIPosition *pos, XICamera *cam) {
 
 /*
   \param seq Sequence to examine
-  \return TRUE if seq->started 'started' is TRUE, else FALSE
+  \return value of seq->start_asap else FALSE
+*/
+gboolean
+xi_sequence_is_marked_start_asap(XISequence *seq)
+{
+  g_return_val_if_fail(seq != NULL, FALSE);
+  return seq->start_asap;
+}
+
+/*
+  \param seq Sequence to examine
+  \return value of seq->started else FALSE
 */
 gboolean
 xi_sequence_is_marked_started(XISequence *seq)
@@ -1897,12 +1953,23 @@ xi_sequence_is_marked_started(XISequence *seq)
 
 /*
   \param seq Sequence to examine
-  \return TRUE if seq is marked 'done' or is NULL, else FALSE.
+  \return value of seq->restartable, else FALSE
+*/
+gboolean
+xi_sequence_is_marked_restartable(XISequence *seq)
+{
+  g_return_val_if_fail(seq != NULL, FALSE);
+  return seq->restartable;
+}
+
+/*
+  \param seq Sequence to examine
+  \return value of seq->done else FALSE
 */
 gboolean
 xi_sequence_is_marked_done(XISequence *seq)
 {
-  g_return_val_if_fail(seq != NULL, TRUE);
+  g_return_val_if_fail(seq != NULL, FALSE);
   return seq->done;
 }
 
@@ -1928,38 +1995,33 @@ xi_sequence_update(XISequence *seq, gdouble parent_elapsed)
 {
   g_return_if_fail(seq != NULL);
 
-  g_debug(_("%s: Entered for seq '%s'. parent_elapsed=%g, seq={done=%d, elapsed=%g, start_at=%g, start_on=%s}"),
+  g_debug(_("%s: Entered for seq '%s'. parent_elapsed=%g, seq={done=%d, elapsed=%g, start_at=%g, start_on=%s, start_on_fired=%d, start_asap=%d, started=%d}"),
           __FUNCTION__, seq->instance_name, parent_elapsed,
-          seq->done, seq->elapsed, seq->start_at, seq->start_on);
+          seq->done, seq->elapsed, seq->start_at, seq->start_on, seq->start_on_fired, seq->start_asap, seq->started);
 
-  /* Are we already done? */
-  if(seq->done){
-    return;
-  }
+  gdouble elapsed = 0;
+  if(seq->started || seq->start_asap) {
+    elapsed = parent_elapsed - seq->start_at;
+  }else if((seq->start_on != NULL && seq->start_on_fired)
+           || (seq->start_on == NULL && seq->start_at > 0)) {
+
+    /* Was start_at reached? */
+
+    if(xi_reached_start_at(&elapsed, seq, parent_elapsed)) {
+      seq->start_asap = TRUE;
+      g_debug(_("%s: Elapsed being reached started seq '%s'. {elapsed=%f, start_asap=%d}"), __FUNCTION__, seq->instance_name, elapsed, seq->start_asap);
+    }
+  }  
 
   /* Are we waiting for a start event? */
-  if(seq->start_on != NULL) {
+  if(!seq->started && !seq->start_asap) {
     return;
   }
 
-  /*
-    Elapsed Time:
-
-    Should be the time elapsed since the start of this sequence.
-
-    Zero is allowed. The update should continue even if the elapsed
-    time is zero. What this means for each piece is respective to that
-    piece, but each piece should take a zero duration into account
-    even if it just means to do nothing.
-
-  */
-
-  /* Determine elapsed time */
-  gdouble elapsed = parent_elapsed - seq->start_at;
-
-  /* Any non-negative elapsed is valid */
-  if(elapsed < 0) {
-    return;
+  /* Warning about incorrect state */
+  if (seq->started && seq->done) {
+    g_warning(_("%s: sequence marked started (%d) and done (%d) simultaneously."),
+              __FUNCTION__, seq->started, seq->done);
   }
 
   /* Do not perform this update if it was already performed. This is
@@ -2054,6 +2116,7 @@ xi_sequence_update(XISequence *seq, gdouble parent_elapsed)
   /* Did sequence just start? */
   if(!seq->started) {
     seq->started = TRUE;
+    seq->start_asap = FALSE;
     g_debug("v-v-v-v-v-- %s STARTED (elapsed %g, prev_elapsed=%g) --v-v-v-v",
             seq->instance_name, elapsed, seq->prev_elapsed);
     xi_sequence_fire_seq_event(seq, "started", -elapsed);
@@ -2062,6 +2125,7 @@ xi_sequence_update(XISequence *seq, gdouble parent_elapsed)
   /* Did sequence just end? */
   if(xi_sequence_just_ended(seq)) {
     seq->done = TRUE;
+    seq->started = FALSE;
     g_debug("^-^-^-^-^--  %s DONE (elapsed %g, prev_elapsed=%g)   --^-^-^-^",
             seq->instance_name, elapsed, seq->prev_elapsed);
     xi_sequence_fire_seq_event(seq, "done", seq->duration - elapsed);

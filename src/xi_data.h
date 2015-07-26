@@ -142,15 +142,20 @@ typedef struct XISequence {
   guint natural_h;
   gchar *scale_mode; /*!< "crop", "stretch", "letterbox", NULL */
   XICamera *camera; /*!< A POV within the sequence */
-  gdouble start_at;
+  gdouble start_at; /*!< Delay after 'start_on' or parent start */
   gchar *start_on; /*!< String that specifies "seq-name:event-name" */
+  gboolean start_on_fired; /*!< TRUE when start_on was just fired */
+  gboolean start_asap; /*!< Start as soon as possible */
   gboolean started;
+  gboolean restartable;
+  // TODO: Idea: gdboule was_started_at;
+  // TODO: Idea: gdouble was_done_at;
+  gboolean done;
   gdouble duration;
   XIDurationType duration_type;
   gdouble rate; /*!< 1.0 means no adjustment and is default */
   gdouble elapsed;
   gdouble prev_elapsed;
-  gboolean done;
   GHashTable *listeners; /*!< key=event-name, value=hooks-to-call */
   gint event_mask; /*!< types of events listened for in listeners */
 } XISequence;
@@ -290,8 +295,10 @@ gboolean xi_init_story(XIStory *story, guint curr_w, guint curr_h,
                        guint curr_bpp);
 void xi_update(XIStory *story, gdouble elapsed);
 void xi_story_free(XIStory *story);
-gboolean xi_sequence_is_marked_done(XISequence *seq);
+gboolean xi_sequence_is_marked_start_asap(XISequence *seq);
 gboolean xi_sequence_is_marked_started(XISequence *seq);
+gboolean xi_sequence_is_marked_restartable(XISequence *seq);
+gboolean xi_sequence_is_marked_done(XISequence *seq);
 gint xi_event_input_subtype_for_listener_key(gchar const *key);
 XIEvent* xi_event_new_empty(XIEventType event_type);
 XIInput_XY* xi_input_xy_new();
@@ -392,13 +399,16 @@ Primary Structs Convenience Macros - clean-up syntax and supply defaults
        .camera         = NULL,                      \
        .start_at       = 0,                         \
        .start_on       = NULL,                      \
+       .start_on_fired = TRUE,                      \
+       .start_asap     = FALSE,                     \
        .started        = FALSE,                     \
+       .restartable    = FALSE,                     \
+       .done           = FALSE,                     \
        .duration       = 0,                         \
        .duration_type  = XI_DURATION_CONTINUOUS,    \
        .rate           = 1.0,                       \
        .elapsed        = 0,                         \
        .prev_elapsed   = 0,                         \
-       .done           = FALSE,                     \
        .listeners      = NULL,                      \
        .event_mask     = 0,                         \
        __VA_ARGS__})
@@ -450,8 +460,11 @@ typedef struct XIData_fade_to_black {
   XISequence *owner_seq;
   XISequence *target_seq; /*!< The seq that will be effected */
   guint8 alpha; /*!< Can be 0-255 */
-  gdouble start_at; /*!< seconds after 'start_on' or parent start */
+  gdouble start_at; /*!< Delay after 'start_on' or parent start */
   gchar *start_on; /*!< Event string to start on */
+  gboolean start_on_fired;
+  gboolean start_asap;
+  gboolean restartable;
   gdouble duration;
   gdouble rate;
   gdouble fps;
@@ -473,6 +486,9 @@ Effects Convenience Macros - clean-up syntax and supply defaults
        .alpha         = 0,                      \
        .start_at      = 0,                      \
        .start_on      = NULL,                   \
+       .start_on_fired = FALSE,                 \
+       .start_asap    = FALSE,                  \
+       .restartable   = FALSE,                  \
        .duration      = 2.0,                    \
        .rate          = 10.0,                   \
        .fps           = 30.0,                   \
@@ -490,6 +506,9 @@ Effects Convenience Macros - clean-up syntax and supply defaults
        .alpha         = 255,                    \
        .start_at      = 0,                      \
        .start_on      = NULL,                   \
+       .start_on_fired = FALSE,                 \
+       .start_asap    = FALSE,                  \
+       .restartable   = FALSE,                  \
        .duration      = 2.0,                    \
        .rate          = 10.0,                   \
        .fps           = 30.0,                   \
@@ -510,5 +529,8 @@ Other
 
 gboolean     xi_get_value     (GHashTable *hash_table, gconstpointer lookup_key, gpointer *value, gpointer *default_value, GError **err);
 gboolean     xi_get_int       (GHashTable *hash_table, gconstpointer lookup_key, gint     *value, gint      default_value, GError **err);
+
+gboolean xi_drawable_select_frame_series(XIDrawable *drawable, gchar const *series_name);
+void xi_start_story_asap(XIStory *story);
 
 #endif

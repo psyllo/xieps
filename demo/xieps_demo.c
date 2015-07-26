@@ -13,18 +13,18 @@ demo_build_entire_story()
                        .natural_h     = 600,
                        .natural_bpp   = 32,
                        .scale_mode    = "stretch");
+  xi_start_story_asap(story);
 
   g_message(_("%s: New story started with name: '%s'"),
             __FUNCTION__, story->name);
 
-  XISequence *intro = xi_sequence_add_child(story->root_seq, "intro1");
+  XISequence *intro = xi_sequence_add_child(story->root_seq, "intro1",
+                                            .start_asap=TRUE);
   intro->pos->x = 20;
   intro->pos->y = 30;
   xi_sequence_set_camera(intro, 0, 0, 0);
 
-  // TODO: LEFT_OFF
   xi_sequence_connect_input_to_camera_xy(intro);
-
 
   xi_drawable_add(story->root_seq,
                   .instance_name     = "root_bg",
@@ -32,8 +32,19 @@ demo_build_entire_story()
                   .use_alpha         = FALSE,
                   .use_alpha_channel = FALSE);
 
-  XIDrawable *hero =
-    xi_drawable_add(intro,
+  XISequence *hero = xi_sequence_add_child(intro, "hero",
+                                           .start_asap=TRUE);
+  hero->pos->x = 43;
+  hero->pos->y = 34;
+
+  XISequence *hero_walk =
+    xi_sequence_add_child(hero, "hero_walk",
+                          .duration=6,
+                          .duration_type=XI_DURATION_TRUNCATE,
+                          .start_asap=TRUE);
+
+  XIDrawable *hero_d =
+    xi_drawable_add(hero_walk,
                     .instance_name     = "mustaphacairo-img",
                     .name              = "mustaphacairo.png",
                     .use_alpha         = FALSE,
@@ -42,11 +53,31 @@ demo_build_entire_story()
                     .colorkey_red      = 0,
                     .colorkey_green    = 0,
                     .colorkey_blue     = 248);
-  hero->pos->z = 5;
+  hero_d->pos->z = 5;
 
+  XIDrawableFrames *walk
+    = xi_drawable_add_drawable_frames(hero_d, "walk", 2);
+
+  xi_drawable_frames_set(walk, 0, .x=365, .y=0, .h=95, .w=30, .duration=1);
+  xi_drawable_frames_set(walk, 1, .x=400, .y=0, .h=95, .w=30, .duration=1);
+
+  XISequence *hero_tip_hat = xi_sequence_add_child(hero, "hero_tip_hat",
+                                                   .start_on="hero_walk:done");
+
+  hero_d =
+    xi_drawable_add(hero_tip_hat,
+                    .instance_name     = "mustaphacairo-img",
+                    .name              = "mustaphacairo.png",
+                    .use_alpha         = FALSE,
+                    .use_alpha_channel = FALSE,
+                    .use_colorkey      = TRUE,
+                    .colorkey_red      = 0,
+                    .colorkey_green    = 0,
+                    .colorkey_blue     = 248);
+  hero_d->pos->z = 5;
 
   XIDrawableFrames *tip_hat
-    = xi_drawable_add_drawable_frames(hero, "tip_hat", 7);
+    = xi_drawable_add_drawable_frames(hero_d, "tip_hat", 6);
 
   xi_drawable_frames_set(tip_hat, 0, .x=000, .y=0, .h=95, .w=50, .duration=1);
   xi_drawable_frames_set(tip_hat, 1, .x=061, .y=0, .h=95, .w=60, .duration=0.1);
@@ -54,7 +85,6 @@ demo_build_entire_story()
   xi_drawable_frames_set(tip_hat, 3, .x=172, .y=0, .h=95, .w=67, .duration=1.2);
   xi_drawable_frames_set(tip_hat, 4, .x=236, .y=0, .h=95, .w=69, .duration=0.2);
   xi_drawable_frames_set(tip_hat, 5, .x=301, .y=0, .h=95, .w=60, .duration=0.1);
-  xi_drawable_frames_set(tip_hat, 6, .x=301, .y=0, .h=95, .w=60, .duration=0.1);
 
 
   XIDrawable *mountain =
@@ -89,10 +119,13 @@ demo_build_entire_story()
                      .rate=10,
                      .duration=2);
 
+  // TODO: If the restartable feature is going to work then it probably should
+  //       be used here instead of a new fade sequence.
   xi_fade_to_black(intro, "fade-out-again",
                    .start_on="fade-in:done",
                    .rate=10,
-                   .duration=2);
+                   .duration=2,
+                   .start_at=1);
  
   g_debug(_("%s: ---------- END OF STORY BUILDING CODE ----------"),
           __FUNCTION__);

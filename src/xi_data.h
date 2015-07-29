@@ -143,10 +143,12 @@ typedef struct XISequence {
   gchar *scale_mode; /*!< "crop", "stretch", "letterbox", NULL */
   XICamera *camera; /*!< A POV within the sequence */
   gdouble start_at; /*!< Delay after 'start_on' or parent start */
+  gdouble start_at_abs; /*!< Absolute start_at. A calculated value */
   gchar *start_on; /*!< String that specifies "seq-name:event-name" */
   gboolean start_on_fired; /*!< TRUE when start_on was just fired */
   gboolean start_asap; /*!< Start as soon as possible */
   gboolean started;
+  gboolean start_count; /*!< Number of times it has been started */
   gboolean restartable;
   // TODO: Idea: gdboule was_started_at;
   // TODO: Idea: gdouble was_done_at;
@@ -398,10 +400,12 @@ Primary Structs Convenience Macros - clean-up syntax and supply defaults
        .scale_mode     = "stretch",                 \
        .camera         = NULL,                      \
        .start_at       = 0,                         \
+       .start_at_abs   = 0,                         \
        .start_on       = NULL,                      \
        .start_on_fired = TRUE,                      \
        .start_asap     = FALSE,                     \
        .started        = FALSE,                     \
+       .start_count    = 0,                         \
        .restartable    = FALSE,                     \
        .done           = FALSE,                     \
        .duration       = 0,                         \
@@ -461,6 +465,7 @@ typedef struct XIData_fade_to_black {
   XISequence *target_seq; /*!< The seq that will be effected */
   guint8 alpha; /*!< Can be 0-255 */
   gdouble start_at; /*!< Delay after 'start_on' or parent start */
+  gdouble start_at_abs;
   gchar *start_on; /*!< Event string to start on */
   gboolean start_on_fired;
   gboolean start_asap;
@@ -485,6 +490,7 @@ Effects Convenience Macros - clean-up syntax and supply defaults
        .target_seq    = NULL,                   \
        .alpha         = 0,                      \
        .start_at      = 0,                      \
+       .start_at_abs  = 0,                      \
        .start_on      = NULL,                   \
        .start_on_fired = FALSE,                 \
        .start_asap    = FALSE,                  \
@@ -505,6 +511,7 @@ Effects Convenience Macros - clean-up syntax and supply defaults
        .target_seq    = NULL,                   \
        .alpha         = 255,                    \
        .start_at      = 0,                      \
+       .start_at_abs  = 0,                      \
        .start_on      = NULL,                   \
        .start_on_fired = FALSE,                 \
        .start_asap    = FALSE,                  \
@@ -532,5 +539,7 @@ gboolean     xi_get_int       (GHashTable *hash_table, gconstpointer lookup_key,
 
 gboolean xi_drawable_select_frame_series(XIDrawable *drawable, gchar const *series_name);
 void xi_start_story_asap(XIStory *story);
+gdouble xi_drawable_frames_duration_calc(XIDrawableFrames *dframes);
+gboolean xi_sequence_reset(XISequence *seq);
 
 #endif

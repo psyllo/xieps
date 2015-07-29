@@ -33,15 +33,17 @@ demo_build_entire_story()
                   .use_alpha_channel = FALSE);
 
   XISequence *hero = xi_sequence_add_child(intro, "hero",
-                                           .start_asap=TRUE);
+                                           .start_at=2);
   hero->pos->x = 43;
   hero->pos->y = 34;
 
   XISequence *hero_walk =
     xi_sequence_add_child(hero, "hero_walk",
-                          .duration=6,
+                          .duration=1.5,
                           .duration_type=XI_DURATION_TRUNCATE,
-                          .start_asap=TRUE);
+                          .start_asap=TRUE,
+                          .start_on="hero_tip_hat:done", // TODO: This won't work because it hasn't been declared yet. Consider processing listeners when story starts starts.
+                          .restartable=TRUE);
 
   XIDrawable *hero_d =
     xi_drawable_add(hero_walk,
@@ -58,8 +60,8 @@ demo_build_entire_story()
   XIDrawableFrames *walk
     = xi_drawable_add_drawable_frames(hero_d, "walk", 2);
 
-  xi_drawable_frames_set(walk, 0, .x=365, .y=0, .h=95, .w=30, .duration=1);
-  xi_drawable_frames_set(walk, 1, .x=400, .y=0, .h=95, .w=30, .duration=1);
+  xi_drawable_frames_set(walk, 0, .x=365, .y=0, .h=95, .w=30, .duration=0.3);
+  xi_drawable_frames_set(walk, 1, .x=400, .y=0, .h=95, .w=30, .duration=0.3);
 
   XISequence *hero_tip_hat = xi_sequence_add_child(hero, "hero_tip_hat",
                                                    .start_on="hero_walk:done");
@@ -79,12 +81,17 @@ demo_build_entire_story()
   XIDrawableFrames *tip_hat
     = xi_drawable_add_drawable_frames(hero_d, "tip_hat", 6);
 
-  xi_drawable_frames_set(tip_hat, 0, .x=000, .y=0, .h=95, .w=50, .duration=1);
-  xi_drawable_frames_set(tip_hat, 1, .x=061, .y=0, .h=95, .w=60, .duration=0.1);
-  xi_drawable_frames_set(tip_hat, 2, .x=107, .y=0, .h=95, .w=69, .duration=0.2);
-  xi_drawable_frames_set(tip_hat, 3, .x=172, .y=0, .h=95, .w=67, .duration=1.2);
-  xi_drawable_frames_set(tip_hat, 4, .x=236, .y=0, .h=95, .w=69, .duration=0.2);
-  xi_drawable_frames_set(tip_hat, 5, .x=301, .y=0, .h=95, .w=60, .duration=0.1);
+  xi_drawable_frames_set(tip_hat, 0, .x=000, .y=0, .h=95, .w=50, .duration=0.5);
+  xi_drawable_frames_set(tip_hat, 1, .x=061, .y=0, .h=95, .w=60, .duration=0.05);
+  xi_drawable_frames_set(tip_hat, 2, .x=107, .y=0, .h=95, .w=69, .duration=0.1);
+  xi_drawable_frames_set(tip_hat, 3, .x=172, .y=0, .h=95, .w=67, .duration=0.75);
+  xi_drawable_frames_set(tip_hat, 4, .x=236, .y=0, .h=95, .w=69, .duration=0.1);
+  xi_drawable_frames_set(tip_hat, 5, .x=301, .y=0, .h=95, .w=60, .duration=0.05);
+
+  gdouble tip_hat_duration = xi_drawable_frames_duration_calc(tip_hat);
+  hero_tip_hat->duration = tip_hat_duration;
+  hero_tip_hat->duration_type = XI_DURATION_TRUNCATE;
+  g_debug(_("%s: tip_hat_duration=%g"), __FUNCTION__, tip_hat_duration);
 
 
   XIDrawable *mountain =
@@ -109,22 +116,22 @@ demo_build_entire_story()
                     .use_alpha_channel = TRUE);
   splash->pos->z = 10;
 
+  // TODO: fade-to-black isn't working since 
+
   xi_fade_to_black(intro, "fade-out",
-                   .duration=2,
+                   .duration=1,
                    .rate=10,
-                   .start_at=2);
+                   .start_at=1);
 
   xi_fade_from_black(intro, "fade-in",
                      .start_on="fade-out:done",
                      .rate=10,
-                     .duration=2);
+                     .duration=1);
 
-  // TODO: If the restartable feature is going to work then it probably should
-  //       be used here instead of a new fade sequence.
   xi_fade_to_black(intro, "fade-out-again",
                    .start_on="fade-in:done",
                    .rate=10,
-                   .duration=2,
+                   .duration=1,
                    .start_at=1);
  
   g_debug(_("%s: ---------- END OF STORY BUILDING CODE ----------"),

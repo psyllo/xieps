@@ -8,6 +8,7 @@ pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 
 
 #include <stdlib.h>
+#include <string.h>
 #include <glib.h>
 #include <glib/gprintf.h>
 #include <libintl.h>
@@ -15,9 +16,11 @@ pragma GCC diagnostic ignored "-Wmissing-field-initializers"
    http://www.gnu.org/software/gettext/manual/html_node/Mark-Keywords.html */
 #define _(String) gettext (String)
 
+
 #include "xi_enums.h"
 #include "xi_error.h"
 #include "xi_points.h"
+
 
 /*****************************************************************************
 Primary Structs
@@ -150,6 +153,8 @@ typedef struct XISequence {
   gboolean started;
   gboolean start_count; /*!< Number of times it has been started */
   gboolean restartable;
+  gboolean paused; // TODO: Implement seq pausing
+  gdouble paused_at;
   // TODO: Idea: gdboule was_started_at;
   // TODO: Idea: gdouble was_done_at;
   gboolean done;
@@ -220,7 +225,21 @@ typedef struct XIEvent {
   GDestroyNotify type_data_destroy; /*!< How to destroy type_data */
   gpointer handler_data; /*!< Pass-through data for event handler */
   GDestroyNotify handler_data_destroy; /*!< How to destroy handler_data */
+  guint handled; /*!< incremented each time it is handled */
 } XIEvent;
+
+typedef gboolean (*XIEventHandler)(gpointer listener, XIEvent *event,
+                                   gpointer data);
+
+typedef struct XIListener {
+  XIEventType event_type; /*! XI_SEQ_EVENT, XI_INPUT_EVENT, etc. */
+  gint event_subtype; /*!< XI_INPUT_XY, etc. */
+  gchar *event_name; /*!< Name of event. Like "done". */
+  XISequence *seq; /*!< The sequence interested in these events. */
+  XIEventHandler handler; /*!< Receives the event */
+  gpointer handler_data; /*!< optional additional data for event handler */
+  GDestroyNotify handler_data_destroy; /*!< optional to delete handler_data */
+} XIListener;
 
 /*! A Story contains one or many sequences that link between
     themselves to create a potentially non-linearly story. */
@@ -282,13 +301,14 @@ XIDrawableFrames* xi_drawable_add_frames_copy(XIDrawable *drawable,
 gboolean xi_position_adjust_for_camera(XIPosition *pos, XICamera *cam);
 void xi_sequence_set_camera(XISequence *seq, gdouble x, gdouble y, gdouble z);
 gboolean xi_sequence_connect_input_to_camera_xy(XISequence *seq);
-GHook* xi_sequence_add_listener(XISequence     *seq,
-                                XIEventType     evt_type,
-                                gint            evt_subtype,
-                                gchar const    *event_name,
-                                GHookFunc       event_handler,
-                                gpointer        handler_data,
-                                GDestroyNotify  handler_data_destroy);
+XIListener* xi_sequence_add_listener(XISequence     *seq,
+                                     XISequence     *listening_seq,
+                                     XIEventType     event_type,
+                                     gint            event_subtype,
+                                     gchar const    *event_name,
+                                     XIEventHandler  handler,
+                                     gpointer        handler_data,
+                                     GDestroyNotify  handler_data_destroy);
 void xi_sequence_fire_input_event(XIEvent *input_event);
 
 
@@ -437,13 +457,14 @@ Primary Structs Convenience Macros - clean-up syntax and supply defaults
 
 #define xi_event_new(source_sequence,               \
                      event_type, event_subtype,     \
+                     event_name,                    \
                      ...)                           \
   xi_event_shallow_copy                             \
   (&(XIEvent)                                       \
    {   .type                 = (event_type),        \
        .subtype              = (event_subtype),     \
        .source_seq           = (source_sequence),   \
-       .name                 = NULL,                \
+       .name                 = g_strdup((event_name)),  \
        .when                 = 0,                   \
        .x                    = 0,                   \
        .y                    = 0,                   \
@@ -453,6 +474,22 @@ Primary Structs Convenience Macros - clean-up syntax and supply defaults
        .type_data_destroy    = NULL,                \
        .handler_data         = NULL,                \
        .handler_data_destroy = NULL,                \
+       .handled              = 0,                   \
+       __VA_ARGS__})
+
+#define xi_listener_new(listening_sequence,             \
+                        event_type, event_subtype,      \
+                        event_name,                     \
+                        ...)                            \
+  xi_listener_shallow_copy                              \
+  (&(XIListener)                                        \
+   {   .event_type           = (event_type),            \
+       .event_subtype        = (event_subtype),         \
+       .event_name           = g_strdup((event_name)),  \
+       .seq                  = (listening_sequence),    \
+       .handler              = NULL,                    \
+       .handler_data         = NULL,                    \
+       .handler_data_destroy = NULL,                    \
        __VA_ARGS__})
 
 /*****************************************************************************
@@ -541,5 +578,11 @@ gboolean xi_drawable_select_frame_series(XIDrawable *drawable, gchar const *seri
 void xi_start_story_asap(XIStory *story);
 gdouble xi_drawable_frames_duration_calc(XIDrawableFrames *dframes);
 gboolean xi_sequence_reset(XISequence *seq);
+XISequence* xi_listeners_hook_list_find_seq(GHookList *hook_list, gpointer seq);
+GList* xi_sequence_listeners(XISequence *seq, gconstpointer key);
+void xi_sequence_setup(XISequence *seq);
+gboolean xi_sequence_has_listener(XISequence *seq, gconstpointer key,
+                                  XISequence *listener);
+
 
 #endif

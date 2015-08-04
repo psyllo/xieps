@@ -1,0 +1,66 @@
+* How listeners are registered
+** Declaration
+   When sequence are created they declared events they listen for
+   (i.e. seq->start_on="foo:done"), which puts an entry not into the
+   listener sequence but rather the source 'foo' sequence 'listeners'
+   field.
+
+** Setup
+   xi_sequence_setup(seq) is called which calls
+   xi_sequence_add_seq_listener_from_str() which converts the event
+   strings like "foo_seq:done" into an actual entry in
+   foo->listeners["done"]->Glist, by calling
+   xi_sequence_add_listener().
+
+   xi_sequence_setup() should be able to be called multiple times on
+   the same sequence without creating duplicate entries or any
+   negative side effects.
+
+* How listeners are stored
+  Here is simplest view of how event listeners are stored for a
+  listener declaration like start_on="foo:done":
+
+  foo_seq->listeners["done"]->GList->{XIListener}data
+
+  The XIListener stored in the GList data field has a field 'seq'
+  which is the listening sequence which originally declared
+  start_on="foo:done".  In the above example the source of the event
+  is 'foo_seq' and the listening sequence is ((XIListener*)data)->seq.
+
+  The {XIListener}data has an field 'handler_data' which is optional
+  data that may assist in processing the events when they arrive.
+  
+  The seq->listeners field is a GHashTable in which listeners are
+  stored by event name (i.e. "done", "started").
+* How events are fired
+** Sequence "start" and "done" events
+*** When
+    When an event is first detected to have started all listening
+    sequences in source_seq->listeners["start"] are notified. Likewise
+    with the done event which has its own listeners stored in
+    source_seq->listeners["done"]. They are notified immediately
+    within that main loop iteration for timing precision.
+*** Preconditions
+    The sequence from which an event originates should have its
+    listeners prepared to receive the events. This means that it
+    should have its 'listeners' GHashTable populated. Read more about
+    about how listeners are stored elsewhere.
+*** Firing
+     SYNOPSIS: The GList of listeners for the "done" event of a
+     sequence is found at: seq->listeners["done"]. For each item in
+     the GList cast its 'data' field to XIListener. The listener has
+     an event handler function called 'handler' and an optional
+     'handler_data' value. Call listener->handler(listener, event,
+     handler_data). Note that the very same 'listener' is passed into
+     its own 'handler' member.
+*** Life-cycle of Events. Creating and deleting events.
+    XIListeners once added remain there until the end of the
+    application.
+
+    If a duplicate listener is added is destroyed and replaced by the
+    new one. The event_name field is also g_free()'d, which is why it
+    is g_strdup()'d when the listener is added. With the exception of
+    the event_name field and the handler_data (if handler_data_destroy
+    is provided) the other fields of the listener such the sequence
+    are not freed, since doing so makes no sense.
+    

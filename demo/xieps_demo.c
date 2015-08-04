@@ -33,7 +33,7 @@ demo_build_entire_story()
                   .use_alpha_channel = FALSE);
 
   XISequence *hero = xi_sequence_add_child(intro, "hero",
-                                           .start_at=2);
+                                           .start_at=1);
   hero->pos->x = 43;
   hero->pos->y = 34;
 
@@ -64,7 +64,23 @@ demo_build_entire_story()
   xi_drawable_frames_set(walk, 1, .x=400, .y=0, .h=95, .w=30, .duration=0.3);
 
   XISequence *hero_tip_hat = xi_sequence_add_child(hero, "hero_tip_hat",
-                                                   .start_on="hero_walk:done");
+                                                   .start_on="hero_walk:done",
+                                                   .restartable=TRUE);
+
+  g_message("hero_walk has 'done' listener hero_tip_hat?: %d",
+            xi_sequence_has_listener(hero_walk, "done", hero_tip_hat));
+
+  g_message("hero_tip_hat has 'done' listener hero_walk?: %d",
+            xi_sequence_has_listener(hero_tip_hat, "done", hero_walk));
+
+  /* LEFT_OFF: TODO: permit setup to be called multiple times without problems */
+  xi_sequence_setup(hero_walk);
+  xi_sequence_setup(hero_walk);
+  xi_sequence_setup(hero_walk);
+  xi_sequence_setup(hero_walk);
+
+  g_message("hero_tip_hat has 'done' listener hero_walk?: %d",
+            xi_sequence_has_listener(hero_tip_hat, "done", hero_walk));
 
   hero_d =
     xi_drawable_add(hero_tip_hat,
@@ -118,21 +134,21 @@ demo_build_entire_story()
 
   // TODO: fade-to-black isn't working since 
 
-  xi_fade_to_black(intro, "fade-out",
-                   .duration=1,
-                   .rate=10,
-                   .start_at=1);
+  /* xi_fade_to_black(intro, "fade-out", */
+  /*                  .duration=1, */
+  /*                  .rate=10, */
+  /*                  .start_at=6); */
 
-  xi_fade_from_black(intro, "fade-in",
-                     .start_on="fade-out:done",
-                     .rate=10,
-                     .duration=1);
+  /* xi_fade_from_black(intro, "fade-in", */
+  /*                    .start_on="fade-out:done", */
+  /*                    .rate=10, */
+  /*                    .duration=1); */
 
-  xi_fade_to_black(intro, "fade-out-again",
-                   .start_on="fade-in:done",
-                   .rate=10,
-                   .duration=1,
-                   .start_at=1);
+  /* xi_fade_to_black(intro, "fade-out-again", */
+  /*                  .start_on="fade-in:done", */
+  /*                  .rate=10, */
+  /*                  .duration=1, */
+  /*                  .start_at=1); */
  
   g_debug(_("%s: ---------- END OF STORY BUILDING CODE ----------"),
           __FUNCTION__);

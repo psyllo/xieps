@@ -8,8 +8,17 @@
 
 
 static gboolean XI_EVENT_CASCADING = TRUE; /*!< Prevent gaps between an event
-
                                              firing and being handled. */
+
+
+GList*
+xi_sequence_listeners(XISequence *seq, gconstpointer key) {
+  g_return_val_if_fail(seq != NULL, NULL);
+  g_return_val_if_fail(seq->listeners != NULL, NULL);
+  g_return_val_if_fail(key != NULL, NULL);
+
+  return (GList*)g_hash_table_lookup(seq->listeners, key);
+}
 
 void
 xi_sequence_setup_hooks_if_null(XISequence *seq)
@@ -39,18 +48,6 @@ xi_event_input_subtype_for_listener_key(gchar const *key)
   return XI_EVENT_SUBTYPE_NA;
 }
 
-void
-xi_sequence_setup_listeners(XISequence *seq)
-{
-  g_return_if_fail(seq != NULL);
-
-  if(seq->listeners == NULL) {
-    seq->listeners =
-      g_hash_table_new_full(g_str_hash, g_str_equal, g_free,
-                            (GDestroyNotify)g_hook_list_clear);
-  }
-}
-
 XICamera*
 xi_camera_new()
 {
@@ -78,11 +75,15 @@ xi_input_xy_new()
 
 /*!
   Where XIInput_XY and XIDriveablePoint meet.
+  \param listener should simply be NULL
+  \param data which has XIDriveablePoint as handler_data
  */
-void
-xi_handle_input_xy_for_driveable_point(XIEvent *event)
+gboolean
+xi_handle_input_xy_for_driveable_point(gpointer listener, XIEvent *event,
+                                       gpointer data)
 {
-  g_return_if_fail(event != NULL);
+  g_return_val_if_fail(event != NULL, FALSE);
+  g_return_val_if_fail(data  != NULL, FALSE);
 
   if(event->type    == XI_INPUT_EVENT &&
      event->subtype == XI_INPUT_XY) {
@@ -112,7 +113,10 @@ xi_handle_input_xy_for_driveable_point(XIEvent *event)
 
     g_debug("%s: point now {input_x=%g, input_y=%g, input_z=%g}",
 	    __FUNCTION__, point->input_x, point->input_y, point->input_z);
+
+    return TRUE;
   }
+  return FALSE;
 }
 
 /*!
@@ -128,10 +132,12 @@ xi_connect_input_xy_to_driveable_point(XISequence *seq, XIDriveablePoint *point)
 
   /* Add a listener that will receive input events */
   // TODO: match with XI_INPUT_XY via Quark
-  GHook *event_hook =
-    xi_sequence_add_listener(seq, XI_INPUT_EVENT, XI_INPUT_XY,
-                             g_strdup("input_xy"),
-                             (GHookFunc)xi_handle_input_xy_for_driveable_point,
+  // TODO: When is 'point' destroyed?
+  // LEFT_OFF: updating this function to current event/listener design.
+  XIListener *listener =
+    xi_sequence_add_listener(seq, NULL,
+                             XI_INPUT_EVENT, XI_INPUT_XY, "input_xy",
+                             xi_handle_input_xy_for_driveable_point,
                              point, NULL);
 
   /* Add a hook to sequence hooks that will update the point */
@@ -152,7 +158,7 @@ xi_connect_input_xy_to_driveable_point(XISequence *seq, XIDriveablePoint *point)
   point_hook->destroy = NULL;
   g_hook_append(seq->hooks, point_hook);
 
-  return(event_hook != NULL);
+  return TRUE;
 }
 
 gboolean
@@ -378,8 +384,21 @@ xi_event_free(XIEvent *evt)
   g_free(evt);
 }
 
+void
+xi_listener_free(XIListener *listener) {
+  if(listener) {
+    if(listener->event_name) {
+      g_free(listener->event_name);
+    }
+    if(listener->handler_data_destroy) {
+      listener->handler_data_destroy(listener->handler_data);
+    }
+    g_free(listener);
+  }
+}
+
 /*!
-  \brief Pointers copied for 'source_seq', 'type_data*', 'handler_data*'
+  \brief All other non scalars are referenced.
 */
 XIEvent*
 xi_event_shallow_copy(XIEvent *evt)
@@ -388,7 +407,7 @@ xi_event_shallow_copy(XIEvent *evt)
   new_evt->type                 = evt->type;
   new_evt->subtype              = evt->subtype;
   new_evt->source_seq           = evt->source_seq;
-  new_evt->name                 = g_strdup(evt->name);
+  new_evt->name                 = evt->name;
   new_evt->when                 = evt->when;
   new_evt->x                    = evt->x;
   new_evt->y                    = evt->y;
@@ -398,91 +417,164 @@ xi_event_shallow_copy(XIEvent *evt)
   new_evt->type_data_destroy    = evt->type_data_destroy;
   new_evt->handler_data         = evt->handler_data;
   new_evt->handler_data_destroy = evt->handler_data_destroy;
+  new_evt->handled              = evt->handled;
   return new_evt;
 }
 
 XIEvent*
 xi_event_new_empty(XIEventType event_type)
 {
-  xi_event_new(NULL, event_type, XI_EVENT_SUBTYPE_NA);
+  xi_event_new(NULL, event_type, XI_EVENT_SUBTYPE_NA, NULL);
 }
 
 /*!
-  \brief Add hook list of given event_name into listeners if does not exist.
+  \param li 'event_name' is g_strdup'd.
+*/
+XIListener*
+xi_listener_shallow_copy(XIListener *li)
+{
+  XIListener *result = g_new(XIListener, 1);
+  result->event_type           = li->event_type;
+  result->event_subtype        = li->event_subtype;
+  result->event_name           = li->event_name;
+  result->seq                  = li->seq;
+  result->handler              = li->handler;
+  result->handler_data         = li->handler_data;
+  result->handler_data_destroy = li->handler_data_destroy;
+  return result;
+}
+
+/*!
+  \brief Ensure hash table is properly setup for listeners on seq
   \param seq The listeners of this seq will be examined/modified.
   \param event_name is g_strdup()'d if used as new hash table key.
-  \return New or existing hook list
+  \return GList that was created or already existed
  */
-GHookList*
-xi_sequence_setup_listeners_hook_list(XISequence *seq, gchar const *event_name)
+GList*
+xi_sequence_setup_listeners(XISequence *seq, gchar const *event_name)
 {
   g_return_val_if_fail(seq        != NULL, NULL);
   g_return_val_if_fail(event_name != NULL, NULL);
 
-  xi_sequence_setup_listeners(seq);
-
-  GHookList *hook_list = NULL;
-  hook_list = g_hash_table_lookup(seq->listeners, event_name);
-  if(hook_list == NULL) {
-    hook_list = g_new(GHookList, 1);
-    g_hook_list_init(hook_list, sizeof(GHook));
-    g_hash_table_insert(seq->listeners, g_strdup(event_name), hook_list);
+  if(seq->listeners == NULL) {
+    seq->listeners =
+      g_hash_table_new_full(g_str_hash, g_str_equal, g_free,
+                            (GDestroyNotify)xi_listener_free);
   }
 
-  return hook_list;
+  return g_hash_table_lookup(seq->listeners, event_name);
+}
+
+/*
+  \param seq NULL is permitted
+  \return the found seq or NULL
+*/
+/*
+  \param seq XISequence or NULL are acceptable
+ */
+XIListener*
+xi_listeners_find_by_seq(GList *list, gpointer seq) {
+  if(list != NULL) {
+    do{
+      if(list->data) {
+        XIListener *l = (XIListener*)list->data;
+        if(l->seq == seq) {
+          return l;
+        }
+      }
+    }while(list = list->next);
+  }
+  return NULL;
+}
+
+gboolean
+xi_sequence_has_listener(XISequence *seq, gconstpointer key,
+                         XISequence *listening_seq)
+{
+  g_return_val_if_fail(seq           != NULL, FALSE);
+  g_return_val_if_fail(listening_seq != NULL, FALSE);
+
+  GList *list = xi_sequence_listeners(seq, key);
+  XIListener *listener = xi_listeners_find_by_seq(list, listening_seq);
+  if(listener) {
+    return listener->seq == listening_seq;
+  }
+  return FALSE;
 }
 
 /*!
-  Listeners should g_free() event when it is received.
-
   \param seq sequence to add event listener to.
-  \param evt_type Event type
-  \param evt_subtype Event subtype
+  \param listening_seq sequence wanting events.
+  \param event_type Event type
+  \param event_subtype Event subtype
   \param event_name Name of event to listen for. Is g_strdup()'d.
-  \param type_data Will be attached to event.
-  \param type_data_destroy attached to the event. Destroy type_data.
-  \param event_handler Reciever of the event.
-  \param handler_data Will be attached to event.
-  \param handler_data_destroy attached to the event. Destroy handler_data.
-  \return GHook that will be called when event fires. NULL on error.
+  \param handler Reciever function for the event.
+  \param handler_data Optional data to pass into handler
+  \param handler_data_destroy Optional function to destroy handler_data
+  \return XIListener that was created, else NULL if failed
 */
-GHook*
+XIListener*
 xi_sequence_add_listener(XISequence     *seq,
-                         XIEventType     evt_type,
-                         gint            evt_subtype,
+                         XISequence     *listening_seq,
+                         XIEventType     event_type,
+                         gint            event_subtype,
                          gchar const    *event_name,
-                         GHookFunc       event_handler,
+                         XIEventHandler  handler,
                          gpointer        handler_data,
                          GDestroyNotify  handler_data_destroy)
 {
-  g_debug(_("%s: for seq '%s' event_name '%s'"),
-          __FUNCTION__, seq->instance_name, event_name);
 
+  /* TODO: Print warnings if args are invalid or suspect */
   g_return_val_if_fail(seq                  != NULL, NULL);
   g_return_val_if_fail(seq->instance_name   != NULL, NULL);
+  g_return_val_if_fail(listening_seq        != NULL, NULL);
+  g_return_val_if_fail(listening_seq->instance_name != NULL, NULL);
   g_return_val_if_fail(event_name           != NULL, NULL);
-  g_return_val_if_fail(event_handler        != NULL, NULL);
+  g_return_val_if_fail(handler              != NULL, NULL);
 
-  seq->event_mask = seq->event_mask | evt_type;
+  g_debug(_("%s: for seq '%s' event_name '%s' listener '%s'"),
+          __FUNCTION__, seq->instance_name, event_name,
+          listening_seq->instance_name);
 
-  XIEvent *event = xi_event_new(seq, evt_type, evt_subtype,
-                                .name=g_strdup(event_name),
-                                .when=0, .x=0, .y=0, .z=0, .speed=0,
-                                .handler_data         = handler_data,
-                                .handler_data_destroy = handler_data_destroy);
+  seq->event_mask = seq->event_mask | event_type;
 
-  GHookList *hook_list = xi_sequence_setup_listeners_hook_list(seq, event_name);
+  XIListener *listener = xi_listener_new
+    (listening_seq, event_type, event_subtype, event_name,
+     .handler=handler,
+     .handler_data=handler_data,
+     .handler_data_destroy=handler_data_destroy);
 
-  GHook *hook      = g_hook_alloc(hook_list);
-  hook->data       = event;
-  hook->func       = event_handler;
-  hook->destroy    = (GDestroyNotify)xi_event_free;
-  g_hook_append(hook_list, hook);
 
-  g_debug(_("%s: finished for seq '%s' event_name '%s'. Result GHook = %p"),
-          __FUNCTION__, seq->instance_name, event_name, hook);
+  /* Why GList and not GHashTable? GList is used although one might
+     think that using another GHashTableIter with seq->instance_name
+     as keys would be more convenient. The one advantage to NOT using
+     GHashTable is that if the sequence names change the key names
+     much change in any GHashTable they are found in as well. */
+  GList *list = xi_sequence_setup_listeners(seq, event_name);
 
-  return hook;
+  /* First check for duplicate listener then add */
+  if(!xi_listeners_find_by_seq(list, listening_seq)) {
+
+    /* Since we are appending to the list and thus adding to the back
+       of the list and not changing the head, there is no reason to
+       modify the listeners GHashTable entry for this event name. On
+       the other hand if we prepended, we would have to modify it the
+       GHashTable entry to point to the new head GList entry.
+    */
+
+    if(list == NULL) {
+      list = g_list_append(list, listener);
+      g_hash_table_replace(seq->listeners, g_strdup(event_name), list);
+    }else{
+      list = g_list_append(list, listener);
+    }
+
+    g_debug(_("%s: finished for seq '%s' event_name '%s'. Result XIListener = %p"),
+            __FUNCTION__, seq->instance_name, event_name, list->data);
+
+  }
+
+  return listener;
 }
 
 XISequence*
@@ -552,52 +644,57 @@ xi_find_sequence(XISequence *seq, gchar *instance_name)
 }
 
 /*!
-  \param any_seq Can be any seq in the seq tree.
+  \param listening_seq Can be any seq in the seq tree.
   \param event_str Example: "foo-seq-instance-name:done"
   \param event_handler Event handler
   \param handler_data Value of event->handler_data of event that will be passed to event_handler
   \param handler_data_destroy Functions to destroy handler_data. Can be NULL.
-  \return The GHook that was created and added to as the event handler. NULL on error.
+  \return The listener that was created and added to as the event handler. NULL on error.
 */
-GHook*
-xi_sequence_add_seq_listener_from_str(XISequence *any_seq, gchar const *event_str,
-                                      GHookFunc event_handler,
+XIListener*
+xi_sequence_add_seq_listener_from_str(XISequence *listening_seq,
+                                      gchar const *event_str,
+                                      XIEventHandler event_handler,
                                       gpointer handler_data,
                                       GDestroyNotify handler_data_destroy)
 {
   g_debug(_("%s: Entered"), __FUNCTION__);
 
-  GHook *hook = NULL;
   gchar **strings = g_strsplit(event_str, ":", 2);
 
   if(strings == NULL) goto cleanup;
   if(*strings == NULL) goto cleanup;
-  gchar *part1 = *strings;
+  gchar *seq_instance_name = *strings;
 
   if(strings + 1 == NULL) goto cleanup;
   if(*(strings + 1) == NULL) goto cleanup;
-  gchar *part2 = *(strings + 1);
+  gchar *event_name = *(strings + 1);
 
   g_debug(_("%s: Split '%s' into '%s', '%s'"),
-          __FUNCTION__, event_str, part1, part2);
+          __FUNCTION__, event_str, seq_instance_name, event_name);
 
-  XISequence *seq = xi_find_sequence(any_seq, part1);
+  XISequence *seq = xi_find_sequence(listening_seq, seq_instance_name);
   if(seq == NULL) {
-    g_critical(_("Failed to add event listener. Seq '%s' not found."), part1);
+    g_critical(_("Failed to add event listener. Seq '%s' not found."),
+               seq_instance_name);
     goto cleanup;
   }else{
     g_debug(_("%s: found seq '%s'"), __FUNCTION__, seq->instance_name);
   }
 
-  hook = xi_sequence_add_listener(seq, XI_SEQ_EVENT, XI_EVENT_SUBTYPE_NA,
-                                  part2, event_handler, handler_data,
-                                  handler_data_destroy);
+  XIListener *listener =
+    xi_sequence_add_listener(seq, listening_seq,
+                             XI_SEQ_EVENT, XI_EVENT_SUBTYPE_NA, event_name,
+                             event_handler, handler_data, handler_data_destroy);
+
+  g_debug(_("%s: '%s' listener added [%p] for sequence '%s'"),
+          __FUNCTION__, event_str, listener, seq->instance_name);
 
  cleanup:
   g_strfreev(strings);
   g_debug(_("%s: Cleaned up"), __FUNCTION__);
   g_debug(_("%s: Leaving"), __FUNCTION__);
-  return hook;
+  return listener;
 }
 
 /*!
@@ -633,10 +730,12 @@ xi_sequence_remaining_time(XISequence *seq)
   duration and return TRUE, else FALSE prev_elapsed is also beyond
   duration.
 
+  TODO: Explain why this behavior
+
   \brief Get remaining time until end of duration.
   \param seq Sequence to examine
-  \param out The result. Always 0 or more (positive).
-  \return TRUE if result is (duration - prev_elapsed). FALSE if result (duration - elapsed) or error occurred.
+  \param out The result (always zero or more)
+  \return TRUE if result is (duration - prev_elapsed). FALSE if result is (duration - elapsed) or error occurred.
 */
 gboolean
 xi_sequence_duration_remainder(XISequence *seq, gdouble *out)
@@ -682,17 +781,20 @@ xi_sequence_just_ended(XISequence *seq)
 }
 
 /*! Replace the existing hook->data, which should be an XIEvent, with
-  the one given as a parameter. Several fields should not change
-  however and are ignored on the new event and copied from the old
-  one. Old event is destroyed except for the fields that were
-  preserved.
+  the one given as a parameter. Several fields should not change from
+  call to call. See the explanation below.
 
-  Fields that should not change:
+  The previous event is destroyed but the fields that should not
+  change are not destroyed. The name should not change on the event
+  either, however it should be a dynamically allocated string, which
+  is free'd with this function.
 
-  - source_seq           : Should be NULL. Copied from old event.
-  - name                 : Should be NULL. Copied from old event. g_free()'d if not NULL.
-  - handler_data         : Should be NULL. Copied from old event.
-  - handler_data_destroy : Should be NULL. Copied from old event.
+  - name                 : Should not change from first call. Will be free'd.
+  - source_seq           : Should not change from first call. Not free'd
+  - handler_data         : Should not change from first call. Not free'd
+  - handler_data_destroy : Should not change from first call. Not free'd
+  - type_data            : Should not change from first call. Not free'd
+  - type_data_destroy    : Should not change from first call. Not free'd
 
   \brief Replaces event data with given 'event' parameter.
   \param hook that will have its 'data' field modified
@@ -707,24 +809,28 @@ xi_sequence_listeners_hook_marshal_for_event(GHook *hook, gpointer new_event)
 
   XIEvent *new_evt = (XIEvent*)new_event;
   XIEvent *prev_evt = hook->data;
-
-  if(new_evt->name != NULL) {
-    g_free(new_evt->name);
-  }
-
-  new_evt->source_seq           = prev_evt->source_seq;
-  new_evt->name                 = prev_evt->name;
-  new_evt->handler_data         = prev_evt->handler_data;
-  new_evt->handler_data_destroy = prev_evt->handler_data_destroy;
-
   hook->data = (gpointer)new_evt;
 
-  prev_evt->source_seq           = NULL;
-  prev_evt->name                 = NULL;
-  prev_evt->handler_data         = NULL;
-  prev_evt->handler_data_destroy = NULL;
+  /* if(prev_evt) { */
+  /*   if(prev_evt->source_seq) */
+  /*     new_evt->source_seq = prev_evt->source_seq; */
+    if(prev_evt->handler_data)
+      new_evt->handler_data = prev_evt->handler_data;
+    if(prev_evt->handler_data_destroy)
+      new_evt->handler_data_destroy = prev_evt->handler_data_destroy;
+  /*   if(prev_evt->type_data) */
+  /*     new_evt->type_data = prev_evt->type_data; */
+  /*   if(prev_evt->type_data_destroy) */
+  /*     new_evt->type_data_destroy = prev_evt->type_data_destroy; */
+  /* } */
 
-  xi_event_free(prev_evt);
+  /* prev_evt->source_seq           = NULL; */
+  /* prev_evt->handler_data         = NULL; */
+  /* prev_evt->handler_data_destroy = NULL; */
+  /* prev_evt->type_data            = NULL; */
+  /* prev_evt->type_data_destroy    = NULL; */
+
+  /* xi_event_free(prev_evt); */
 }
 
 void
@@ -766,22 +872,19 @@ xi_sequence_fire_event_full(XISequence *source_seq,
           __FUNCTION__, event_name, source_seq->instance_name);
 
   if(source_seq->listeners == NULL) {
-    g_debug(_("%s: No listeners found."), __FUNCTION__);
+    g_warning(_("%s: listeners hash table is NULL."), __FUNCTION__);
     return;
   }
-  GHookList *hook_list = g_hash_table_lookup(source_seq->listeners, event_name);
-  if(hook_list == NULL) {
-    g_debug(_("%s: No hooks found."), __FUNCTION__);
+  GList *listener_list = g_hash_table_lookup(source_seq->listeners, event_name);
+  if(listener_list == NULL) {
+    g_debug(_("%s: Listener list NULL for %s:%s"),
+            __FUNCTION__, source_seq->instance_name, event_name);
     return;
   }
 
   g_debug(_("%s: There are listeners"), __FUNCTION__);
 
-  // TODO: When are event->name and evt->name getting destroyed?
-  // Is it correct to g_strdup(event_name) here?
-
-  XIEvent *evt = xi_event_new(source_seq, evt_type, evt_subtype,
-                              .name=g_strdup(event_name),
+  XIEvent *evt = xi_event_new(source_seq, evt_type, evt_subtype, event_name,
                               .when=when, .x=x, .y=y, .z=z, .speed=speed,
                               .type_data         = type_data,
                               .type_data_destroy = type_data_destroy);
@@ -790,11 +893,20 @@ xi_sequence_fire_event_full(XISequence *source_seq,
           __FUNCTION__, evt->name, source_seq->instance_name,
           evt_type, evt_subtype);
 
-  g_debug(_("%s: marshaling event hook list"), __FUNCTION__);
-  xi_event_hook_list_marshal_for_new_event(hook_list, evt);
+  XIListener *listener = listener_list->data;
+  do{
+    if(listener->handler) {
 
-  g_debug(_("%s: invoking hooks list"), __FUNCTION__);
-  g_hook_list_invoke(hook_list, FALSE);
+      /* If event is considered handled even once it should stay
+         marked that way */
+      if(listener->handler(listener, evt, NULL)) {
+        evt->handled++;
+      }
+    }
+  }while(listener_list = listener_list->next);
+
+
+  xi_event_free(evt);
 
   g_debug(_("%s: Leaving"), __FUNCTION__);
 }
@@ -1452,58 +1564,63 @@ xi_sequence_has_started_before(XISequence *seq) {
   return seq->start_count > 0;
 }
 
-/*! Start the sequence that is the event->handler_data.
-
-  \param event that should have an XISequence for the 'handler_data' field.
+/*!
+  \breif Start the sequence that is listening
+  \param listener Non-NULL XIListener* with a populated 'seq' field
+  \param event  Non-NULL event
+  \param data optional data
+  \return TRUE if handled
 */
-void
-xi_sequence_start_standard_event_handler(gpointer event)
+gboolean
+xi_sequence_start_standard_event_handler(gpointer listener,
+                                         XIEvent *event, gpointer data)
 {
-  g_debug(_("%s: Entering"), __FUNCTION__);
-  g_return_if_fail(event != NULL);
+  g_debug(_("%s: Entering. {listener=%p, event=%p}"),
+          __FUNCTION__, listener, event);
+  
+  g_return_val_if_fail(listener != NULL, FALSE);
+  g_return_val_if_fail(event != NULL, FALSE);
 
-  XIEvent *evt = (XIEvent*)event;
-  if(evt->handler_data != NULL) {
-    XISequence *hook_seq = (XISequence*)evt->handler_data;
+  XISequence *seq = ((XIListener*)listener)->seq;
+  if(seq != NULL) {
     gboolean failed_to_reset_seq = FALSE;
-    if(xi_sequence_has_started_before(hook_seq)
-       && !xi_sequence_reset(hook_seq)) {
+    if(xi_sequence_has_started_before(seq)
+       && !xi_sequence_reset(seq)) {
       failed_to_reset_seq = TRUE;
       g_warning(_("%s: failed to reset the seq '%s'"),
-                __FUNCTION__, hook_seq->instance_name);
+                __FUNCTION__, seq->instance_name);
     }
-    hook_seq->start_on_fired = TRUE;
-    if(!failed_to_reset_seq && hook_seq->parent != NULL) {
+    seq->start_on_fired = TRUE;
+    if(!failed_to_reset_seq && seq->parent != NULL) {
 
       /* 'start_at_abs' will be the current elapsed time of the parent
          minus an optional adjustment 'when' (negative) to factor in
          how long ago the event fired (usually a small fraction of a
          second).
       */
-      hook_seq->start_at_abs
-        = hook_seq->start_at
-        + hook_seq->parent->elapsed
-        + evt->when;
+      seq->start_at_abs
+        = seq->start_at
+        + seq->parent->elapsed
+        + event->when;
 
-      g_debug(_("%s: event hook_seq={'%s', start_at=%g, start_at_abs=%g, elapsed=%g, parent->elapsed=%g, when=%g}"),
-              __FUNCTION__, hook_seq->instance_name,
-              hook_seq->start_at, hook_seq->start_at_abs,
-              hook_seq->elapsed, hook_seq->parent->elapsed, evt->when);
+      g_debug(_("%s: event seq={'%s', start_at=%g, start_at_abs=%g, elapsed=%g, parent->elapsed=%g, when=%g}"),
+              __FUNCTION__, seq->instance_name,
+              seq->start_at, seq->start_at_abs,
+              seq->elapsed, seq->parent->elapsed, event->when);
       if(XI_EVENT_CASCADING) {
 
         /* This update call has the effect of the sequence starting
            immediately after the event is fired and not the next
            iteration. This prevents unwanted spaces and delays.
         */
-        xi_sequence_update(hook_seq, hook_seq->parent->elapsed);
+        xi_sequence_update(seq, seq->parent->elapsed);
       }
     }
-    g_debug(_("%s: hook_seq('%s') remaining time: %g"), __FUNCTION__,
-            hook_seq->instance_name, xi_sequence_remaining_time(hook_seq));
+    g_debug(_("%s: seq('%s') remaining time: %g"), __FUNCTION__,
+            seq->instance_name, xi_sequence_remaining_time(seq));
   }else{
-    g_debug(_("%s: event->handler_data was NULL"), __FUNCTION__);
+    g_warning(_("%s: listening sequence was NULL"), __FUNCTION__);
   }
-  xi_event_free(evt);
   g_debug(_("%s: Leaving"), __FUNCTION__);
 }
 
@@ -1517,7 +1634,7 @@ xi_sequence_setup(XISequence *seq)
     xi_sequence_add_seq_listener_from_str(seq,
                                           seq->start_on,
                                           xi_sequence_start_standard_event_handler,
-                                          (gpointer)seq,
+                                          NULL,
                                           NULL);
   }
 }

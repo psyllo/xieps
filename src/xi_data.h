@@ -583,6 +583,8 @@ GList* xi_sequence_listeners(XISequence *seq, gconstpointer key);
 void xi_sequence_setup(XISequence *seq);
 gboolean xi_sequence_has_listener(XISequence *seq, gconstpointer key,
                                   XISequence *listener);
+void xi_story_fire_input_event(XIStory *story, XIEvent *event);
+void xi_update_list_of_seqs_wanting_input(XIStory *story, XISequence *seq);
 
 
 #endif

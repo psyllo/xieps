@@ -134,21 +134,21 @@ demo_build_entire_story()
 
   // TODO: fade-to-black isn't working since 
 
-  /* xi_fade_to_black(intro, "fade-out", */
-  /*                  .duration=1, */
-  /*                  .rate=10, */
-  /*                  .start_at=6); */
+  xi_fade_to_black(intro, "fade-out",
+                   .duration=1,
+                   .rate=10,
+                   .start_at=6);
 
-  /* xi_fade_from_black(intro, "fade-in", */
-  /*                    .start_on="fade-out:done", */
-  /*                    .rate=10, */
-  /*                    .duration=1); */
+  xi_fade_from_black(intro, "fade-in",
+                     .start_on="fade-out:done",
+                     .rate=10,
+                     .duration=1);
 
-  /* xi_fade_to_black(intro, "fade-out-again", */
-  /*                  .start_on="fade-in:done", */
-  /*                  .rate=10, */
-  /*                  .duration=1, */
-  /*                  .start_at=1); */
+  xi_fade_to_black(intro, "fade-out-again",
+                   .start_on="fade-in:done",
+                   .rate=10,
+                   .duration=1,
+                   .start_at=1);
  
   g_debug(_("%s: ---------- END OF STORY BUILDING CODE ----------"),
           __FUNCTION__);

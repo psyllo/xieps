@@ -10,6 +10,8 @@
 static gboolean XI_EVENT_CASCADING = TRUE; /*!< Prevent gaps between an event
                                              firing and being handled. */
 
+static gchar const * const SEQS_WANTING_INPUT_KEY = "seqs_wanting_input";
+
 
 GList*
 xi_sequence_listeners(XISequence *seq, gconstpointer key) {
@@ -77,13 +79,14 @@ xi_input_xy_new()
   Where XIInput_XY and XIDriveablePoint meet.
   \param listener should simply be NULL
   \param data which has XIDriveablePoint as handler_data
+  \param data optional
+  \return TRUE is handled
  */
 gboolean
 xi_handle_input_xy_for_driveable_point(gpointer listener, XIEvent *event,
                                        gpointer data)
 {
   g_return_val_if_fail(event != NULL, FALSE);
-  g_return_val_if_fail(data  != NULL, FALSE);
 
   if(event->type    == XI_INPUT_EVENT &&
      event->subtype == XI_INPUT_XY) {
@@ -135,7 +138,7 @@ xi_connect_input_xy_to_driveable_point(XISequence *seq, XIDriveablePoint *point)
   // TODO: When is 'point' destroyed?
   // LEFT_OFF: updating this function to current event/listener design.
   XIListener *listener =
-    xi_sequence_add_listener(seq, NULL,
+    xi_sequence_add_listener(seq, seq,
                              XI_INPUT_EVENT, XI_INPUT_XY, "input_xy",
                              xi_handle_input_xy_for_driveable_point,
                              point, NULL);
@@ -577,6 +580,57 @@ xi_sequence_add_listener(XISequence     *seq,
   return listener;
 }
 
+void
+xi_update_list_of_seqs_wanting_input(XIStory *story, XISequence *seq)
+{
+  g_return_if_fail(story                != NULL);
+  g_return_if_fail(story->named_buckets != NULL);
+  g_return_if_fail(seq                  != NULL);
+
+  /* Get seqs_wanting_input table. If not exists then create it */
+  GHashTable *seqs_wanting_input =
+    g_hash_table_lookup(story->named_buckets, SEQS_WANTING_INPUT_KEY);
+  if(seqs_wanting_input == NULL) {
+    seqs_wanting_input = g_hash_table_new(g_str_hash, g_str_equal);
+    g_hash_table_insert(story->named_buckets,
+                        g_strdup(SEQS_WANTING_INPUT_KEY),
+                        seqs_wanting_input);
+  }
+
+  /* Ignore seqs that are have not started or are done */
+  // TODO: Why does this check not work? Not getting marked as started?
+  if(!xi_sequence_is_marked_started(seq) || xi_sequence_is_marked_done(seq)) {
+    // LEFT_OFF
+    //return; TODO: should return if this check fails.
+  }
+
+  /* Check listeners of current sequence for wanting input */
+  if(seq->listeners != NULL && seq->event_mask & XI_INPUT_EVENT) {
+    g_hash_table_insert(seqs_wanting_input, seq->instance_name, seq);
+  }
+
+  /* Recur on state_specific */
+  if(seq->state_name != NULL && g_hash_table_size(seq->state_specific) > 0) {
+    XISequence *sss = g_hash_table_lookup(seq->state_specific, seq->state_name);
+    if(sss != NULL) {
+      xi_update_list_of_seqs_wanting_input(story, sss);
+    }else{
+      g_debug(_("Sequence '%s' state_name '%s' names a state_specific sequence that does not exist."),
+              seq->name, seq->state_name);
+    }
+  }
+
+  /* Recur on children */
+  if(seq->children != NULL && g_hash_table_size(seq->children) > 0) {
+    GHashTableIter iter;
+    gpointer key, value;
+    g_hash_table_iter_init(&iter, seq->children);
+    while(g_hash_table_iter_next(&iter, &key, &value)) {
+      xi_update_list_of_seqs_wanting_input(story, (XISequence*)value);
+    }
+  }
+}
+
 XISequence*
 xi_find_root_sequence(XISequence *seq)
 {
@@ -780,68 +834,6 @@ xi_sequence_just_ended(XISequence *seq)
   return just_ended;
 }
 
-/*! Replace the existing hook->data, which should be an XIEvent, with
-  the one given as a parameter. Several fields should not change from
-  call to call. See the explanation below.
-
-  The previous event is destroyed but the fields that should not
-  change are not destroyed. The name should not change on the event
-  either, however it should be a dynamically allocated string, which
-  is free'd with this function.
-
-  - name                 : Should not change from first call. Will be free'd.
-  - source_seq           : Should not change from first call. Not free'd
-  - handler_data         : Should not change from first call. Not free'd
-  - handler_data_destroy : Should not change from first call. Not free'd
-  - type_data            : Should not change from first call. Not free'd
-  - type_data_destroy    : Should not change from first call. Not free'd
-
-  \brief Replaces event data with given 'event' parameter.
-  \param hook that will have its 'data' field modified
-  \param The new event. Not all values are copied, however.
-*/
-void
-xi_sequence_listeners_hook_marshal_for_event(GHook *hook, gpointer new_event)
-{
-  g_return_if_fail(hook       != NULL);
-  g_return_if_fail(new_event  != NULL);
-  g_return_if_fail(hook->data != NULL);
-
-  XIEvent *new_evt = (XIEvent*)new_event;
-  XIEvent *prev_evt = hook->data;
-  hook->data = (gpointer)new_evt;
-
-  /* if(prev_evt) { */
-  /*   if(prev_evt->source_seq) */
-  /*     new_evt->source_seq = prev_evt->source_seq; */
-    if(prev_evt->handler_data)
-      new_evt->handler_data = prev_evt->handler_data;
-    if(prev_evt->handler_data_destroy)
-      new_evt->handler_data_destroy = prev_evt->handler_data_destroy;
-  /*   if(prev_evt->type_data) */
-  /*     new_evt->type_data = prev_evt->type_data; */
-  /*   if(prev_evt->type_data_destroy) */
-  /*     new_evt->type_data_destroy = prev_evt->type_data_destroy; */
-  /* } */
-
-  /* prev_evt->source_seq           = NULL; */
-  /* prev_evt->handler_data         = NULL; */
-  /* prev_evt->handler_data_destroy = NULL; */
-  /* prev_evt->type_data            = NULL; */
-  /* prev_evt->type_data_destroy    = NULL; */
-
-  /* xi_event_free(prev_evt); */
-}
-
-void
-xi_event_hook_list_marshal_for_new_event(GHookList *hook_list, XIEvent *evt)
-{
-  g_hook_list_marshal(hook_list,
-                      FALSE,
-                      xi_sequence_listeners_hook_marshal_for_event,
-                      evt);
-}
-
 /*
   \param source_seq Where the event came from.
   \param evt_type Event type
@@ -895,13 +887,8 @@ xi_sequence_fire_event_full(XISequence *source_seq,
 
   XIListener *listener = listener_list->data;
   do{
-    if(listener->handler) {
-
-      /* If event is considered handled even once it should stay
-         marked that way */
-      if(listener->handler(listener, evt, NULL)) {
-        evt->handled++;
-      }
+    if(listener->handler && listener->handler(listener, evt, NULL)) {
+      evt->handled++;
     }
   }while(listener_list = listener_list->next);
 
@@ -934,20 +921,80 @@ xi_sequence_fire_input_event(XIEvent *input_event)
   g_debug(_("%s: Firing input event '%s' from source_seq '%s'"),
           __FUNCTION__, input_event->name, source_seq->instance_name);
 
-  GHookList *hook_list = g_hash_table_lookup(source_seq->listeners,
-                                             input_event->name);
-  if(hook_list == NULL) return;
+  GList *list = g_hash_table_lookup(source_seq->listeners, input_event->name);
+  if(list == NULL) {
+    g_warning(_("%s: seq '%s' had no listeners for '%s'"), __FUNCTION__,
+              input_event->source_seq->instance_name, input_event->name);
+    return;
+  }
 
   g_debug(_("%s: there are listeners on '%s' for input event '%s'"),
           __FUNCTION__, source_seq->instance_name, input_event->name);
 
-  g_debug(_("%s: marshaling input event listener hook list"), __FUNCTION__);
-  xi_event_hook_list_marshal_for_new_event(hook_list, input_event);
+  XIListener *listener = NULL;
+  do{
+    listener = list->data;
+    if(listener && listener->handler) {
+      g_debug(_("%s: calling event handler for input event"), __FUNCTION__);
+      if(listener->handler(listener, input_event, NULL)) {
+        g_debug(_("%s: input handled!"), __FUNCTION__);
+        input_event->handled++;
+      }else{
+        g_debug(_("%s: input NOT handled"), __FUNCTION__);
+      }
+    }
+  }while(list = list->next);
 
-  g_debug(_("%s: invoking hooks list"), __FUNCTION__);
-  g_hook_list_invoke(hook_list, FALSE);
+  if(input_event->handled <= 0) {
+    g_warning(_("%s: input event never handled"), __FUNCTION__);
+  }
 
   g_debug(_("%s: Leaving"), __FUNCTION__);
+}
+
+void
+xi_story_fire_input_event(XIStory *story, XIEvent *event) {
+
+  g_return_val_if_fail(story                != NULL, FALSE);
+  g_return_val_if_fail(story->named_buckets != NULL, FALSE);
+  g_return_val_if_fail(event                != NULL, FALSE);
+
+
+  // TODO: Why use a hash table (other than to help prevent dups)?
+  GHashTable *seqs_wanting_input =
+    g_hash_table_lookup(story->named_buckets, SEQS_WANTING_INPUT_KEY);
+
+  if(seqs_wanting_input == NULL || g_hash_table_size(seqs_wanting_input) == 0) {
+    g_debug(_("%s: no sequences listening for input"), __FUNCTION__);
+    return;
+  }
+
+  GHashTableIter iter;
+  gpointer key, value;
+  g_hash_table_iter_init(&iter, seqs_wanting_input);
+  while(g_hash_table_iter_next(&iter, &key, &value)) {
+    XISequence *seq = value;
+    if(seq->event_mask & XI_INPUT_EVENT) {
+      // TODO: Setting source_seq here just seems wrong.
+      //       The only reason it makes sense is because the event did not
+      //       origninate from any sequence.
+      event->source_seq = seq;
+      if(seq->camera) {
+        event->handler_data = seq->camera->point;
+      }else{
+        g_warning(_("%s: seq '%s' missing camera"),
+                  __FUNCTION__, seq->instance_name);
+      }
+      xi_sequence_fire_input_event(event);
+
+      // TODO: Returning after firing event for just one seq. Why not fire
+      //       for all listening events?
+      return;
+    }else{
+      g_warning(_("%s: seq does not want XI_INPUT_EVENT. seq->event_mask=%d"),
+                __FUNCTION__, seq->event_mask);
+    }
+  }
 }
 
 void

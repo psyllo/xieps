@@ -64,3 +64,13 @@
     is provided) the other fields of the listener such the sequence
     are not freed, since doing so makes no sense.
     
+* Input events
+** Synopsis
+   Input events originate from SDL and are initially handled
+   by the Xieps SDL Player code. They are then converted into XIEvent
+   types and passed on to the Xieps core code.
+** SDL Player - xisp_handle_event()
+   xisp_handle_event() handles the SDL_Event and converts the
+   SDL_Event into an XIEvent and calls xi_story_fire_event(e).
+** Core - xi_story_fire_event()
+   Each XISequence listening to input will receive the event.

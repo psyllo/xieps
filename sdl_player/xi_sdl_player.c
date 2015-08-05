@@ -6,7 +6,6 @@ static SDL_Surface *display = NULL;
 static gchar const * const assets_root_dir = "story/data/assets/";
 static FILE *logfile = NULL;
 static char *log_filename = "xieps_sdl_player.log";
-static gchar const * const SEQS_WANTING_INPUT_KEY = "seqs_wanting_input";
 
 void
 xisp_blit(XIStory *story, XIDrawable *drawable) {
@@ -220,7 +219,6 @@ xisp_event_subtype_for_listener_key(gchar * const key)
   return XI_EVENT_SUBTYPE_NA;
 }
 
-
 gboolean
 xisp_sdl_event_is_keyboard_directional(SDL_Event *sdl_event)
 {
@@ -292,35 +290,29 @@ xisp_sdl_event_to_xi_event(SDL_Event *sdl_event)
 /*! This function accepts an SDL_Event and knows how to convert it and
   send it along to Xieps.
 
+  TODO: this function is named incorrectly because right now it is
+  geared just toward input events. Or should there just be conditions
+  added as different events arise and leave it named as is?
+
   \return TRUE if event was handled
 */
 gboolean
 xisp_handle_event(gdouble elapsed, XIStory *story, SDL_Event *sdl_event)
 {
-  g_return_val_if_fail(story                != NULL, FALSE);
-  g_return_val_if_fail(story->named_buckets != NULL, FALSE);
+  g_return_val_if_fail(story != NULL, FALSE);
 
-  GHashTable *seqs_wanting_input = g_hash_table_lookup(story->named_buckets,
-                                                       SEQS_WANTING_INPUT_KEY);
-  if(seqs_wanting_input == NULL || g_hash_table_size(seqs_wanting_input) == 0) {
+  // TODO: for effeciency add some quick check to see of anything in the story
+  //       is listening to this type of event.
+
+  XIEvent *event = xisp_sdl_event_to_xi_event(sdl_event);
+  if(event == NULL) {
+    g_warning(_("%s event was unexpectedly NULL"), __FUNCTION__);
     return FALSE;
   }
 
-  XIEvent *event = xisp_sdl_event_to_xi_event(sdl_event);
-  if(event == NULL) return FALSE;
+  xi_story_fire_input_event(story, event);
 
-  GHashTableIter iter;
-  gpointer key, value;
-  g_hash_table_iter_init(&iter, seqs_wanting_input);
-  while(g_hash_table_iter_next(&iter, &key, &value)) {
-    XISequence *seq = value;
-    if(seq->event_mask & XI_INPUT_EVENT) {
-      event->source_seq = seq;
-      xi_sequence_fire_input_event(event);
-      return TRUE;
-    }
-  }
-
+  xi_event_free(event);
 
   return FALSE;
 }
@@ -374,52 +366,7 @@ xisp_sequence_event_mask_update_by_examination(XISequence *seq)
 void
 xisp_update_list_of_seqs_wanting_input(XIStory *story, XISequence *seq)
 {
-  g_return_if_fail(story                != NULL);
-  g_return_if_fail(story->named_buckets != NULL);
-  g_return_if_fail(seq                  != NULL);
-
-  /* Get seqs_wanting_input table. If not exists then create it */
-  GHashTable *seqs_wanting_input =
-    g_hash_table_lookup(story->named_buckets, SEQS_WANTING_INPUT_KEY);
-  if(seqs_wanting_input == NULL) {
-    seqs_wanting_input = g_hash_table_new(g_str_hash, g_str_equal);
-    g_hash_table_insert(story->named_buckets,
-                        g_strdup(SEQS_WANTING_INPUT_KEY),
-                        seqs_wanting_input);
-  }
-
-  /* Ignore seqs that are have not started or are done */
-  // TODO: Why does this check not work? Not getting marked as started?
-  if(!xi_sequence_is_marked_started(seq) || xi_sequence_is_marked_done(seq)) {
-    // LEFT_OFF
-    //return; TODO: should return if this check fails.
-  }
-
-  /* Check listeners of current sequence for wanting input */
-  if(seq->listeners != NULL && seq->event_mask & XI_INPUT_EVENT) {
-    g_hash_table_insert(seqs_wanting_input, seq->instance_name, seq);
-  }
-
-  /* Recur on state_specific */
-  if(seq->state_name != NULL && g_hash_table_size(seq->state_specific) > 0) {
-    XISequence *sss = g_hash_table_lookup(seq->state_specific, seq->state_name);
-    if(sss != NULL) {
-      xisp_update_list_of_seqs_wanting_input(story, sss);
-    }else{
-      g_debug(_("Sequence '%s' state_name '%s' names a state_specific sequence that does not exist."),
-              seq->name, seq->state_name);
-    }
-  }
-
-  /* Recur on children */
-  if(seq->children != NULL && g_hash_table_size(seq->children) > 0) {
-    GHashTableIter iter;
-    gpointer key, value;
-    g_hash_table_iter_init(&iter, seq->children);
-    while(g_hash_table_iter_next(&iter, &key, &value)) {
-      xisp_update_list_of_seqs_wanting_input(story, (XISequence*)value);
-    }
-  }
+  xi_update_list_of_seqs_wanting_input(story, seq);
 }
 
 SDL_Surface*

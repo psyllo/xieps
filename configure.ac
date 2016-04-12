@@ -41,6 +41,9 @@ AC_CONFIG_HEADERS([config.h])
 # place to put some extra build scripts installed
 AC_CONFIG_AUX_DIR(build-aux)
 
+# Recommended addition from libtoolize (when running ./autogen.sh)
+AC_CONFIG_MACRO_DIRS([m4])
+
 # Checks for programs.
 AC_PROG_CXX
 AC_PROG_AWK

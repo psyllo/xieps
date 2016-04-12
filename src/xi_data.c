@@ -94,8 +94,8 @@ xi_handle_input_xy_for_driveable_point(gpointer listener, XIEvent *event,
     XIInput_XY       *input_xy = (XIInput_XY*)      event->type_data;
     XIDriveablePoint *point    = (XIDriveablePoint*)event->handler_data;
 
-    g_return_if_fail(input_xy != NULL);
-    g_return_if_fail(point != NULL);
+    g_return_val_if_fail(input_xy != NULL, FALSE);
+    g_return_val_if_fail(point != NULL, FALSE);
 
     if(input_xy->up_changed == TRUE) {
       point->input_y = input_xy->up - point->input_down;
@@ -955,9 +955,9 @@ xi_sequence_fire_input_event(XIEvent *input_event)
 void
 xi_story_fire_input_event(XIStory *story, XIEvent *event) {
 
-  g_return_val_if_fail(story                != NULL, FALSE);
-  g_return_val_if_fail(story->named_buckets != NULL, FALSE);
-  g_return_val_if_fail(event                != NULL, FALSE);
+  g_return_if_fail(story                != NULL);
+  g_return_if_fail(story->named_buckets != NULL);
+  g_return_if_fail(event                != NULL);
 
 
   // TODO: Why use a hash table (other than to help prevent dups)?
@@ -2201,7 +2201,7 @@ xi_sequence_is_marked_done(XISequence *seq)
 gboolean
 xi_sequence_reset(XISequence *seq)
 {
-  g_return_if_fail(seq != NULL);
+  g_return_val_if_fail(seq != NULL, FALSE);
   gboolean result = FALSE;
   if(seq->restartable) {
     seq->start_at_abs   = 0;

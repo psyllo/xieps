@@ -35,7 +35,7 @@
 
 AC_PREREQ([2.68])
 AC_INIT([xieps], 0.0.0, [the letter b dot the letter c AT hush com])
-AC_CONFIG_SRCDIR([config.h.in])
+AC_CONFIG_SRCDIR([src/xi_data.c])
 AC_CONFIG_HEADERS([config.h])
 
 # place to put some extra build scripts installed
@@ -52,9 +52,7 @@ AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
-AC_PROG_RANLIB
 AC_PROG_LIBTOOL
-
 
 # Libtool
 # https://www.gnu.org/software/automake/manual/libtool.html#Top
@@ -62,7 +60,7 @@ LT_INIT
 
 # fairly severe build strictness
 # change foreign to gnu or gnits to comply with gnu standards
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([subdir-objects])
 
 # Checks for libraries.
 # PKG_CHECK_MODULES considered harmful?
@@ -84,8 +82,6 @@ AM_GNU_GETTEXT_VERSION([0.18.1])
 # Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS([stdlib.h unistd.h libintl.h])
-# TODO: Don't know what I even need AC_CHECK_HEADER(S) for unless I'm
-# doing something alternative if a header doesn't exist.
 # AC_CHECK_HEADER([glib.h]) # not found AC_CHECK_HEADER([SDL/SDL.h])
 # AC_CHECK_HEADER([SDL/SDL_rotozoom.h])
 # AC_CHECK_HEADER([SDL/SDL_gfxPrimitives.h])
@@ -104,5 +100,4 @@ AC_CONFIG_FILES([Makefile
                  src/Makefile
                  tests/Makefile
                  sdl_player/Makefile])
-                 # po/Makefile.in -- removed because was throwing error
 AC_OUTPUT

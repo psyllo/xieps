@@ -21,3 +21,4 @@ libtool
 m4/
 build-aux
 aclocal.m4
+.dirstamp

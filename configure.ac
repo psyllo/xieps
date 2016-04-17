@@ -53,6 +53,7 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
 AC_PROG_LIBTOOL
+# AC_PROG_RANLIB -- deprecated by LT_INIT
 
 # Libtool
 # https://www.gnu.org/software/automake/manual/libtool.html#Top
@@ -67,6 +68,7 @@ AM_INIT_AUTOMAKE([subdir-objects])
 # See: http://stackoverflow.com/questions/10220946/pkg-check-modules-considered-harmful#10229811
 PKG_PROG_PKG_CONFIG
 PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.32.3])
+AC_CHECK_LIB([glib-2.0], [g_hash_table_new])
 PKG_CHECK_MODULES([SDL], [sdl >= 1.2.12])
 PKG_CHECK_MODULES([SDL_GFX], [SDL_gfx >= 2.0.24])
 # Ubuntu does not package it 2.0.24 and I am using features of .24
@@ -81,11 +83,18 @@ AM_GNU_GETTEXT_VERSION([0.18.1])
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([stdlib.h unistd.h libintl.h])
-# AC_CHECK_HEADER([glib.h]) # not found AC_CHECK_HEADER([SDL/SDL.h])
-# AC_CHECK_HEADER([SDL/SDL_rotozoom.h])
-# AC_CHECK_HEADER([SDL/SDL_gfxPrimitives.h])
-# AC_CHECK_HEADER([SDL/SDL_framerate.h])
+AC_CHECK_HEADERS([libintl.h])
+
+# Since PKG_CHECK_MODULES is already being run successfully these
+# checks might be redundant.
+#AC_CHECK_HEADERS([glib.h])
+#AC_CHECK_HEADERS([SDL/SDL.h])
+#AC_CHECK_HEADER([SDL2/SDL.h])
+# These fail since they include <SDL.h> rather than <SDL/SDL.h>.
+# Would need to add SDL dir as an include path so AC_CHECK_HEADERS succeeds.
+#AC_CHECK_HEADERS([SDL/SDL_rotozoom.h])
+#AC_CHECK_HEADERS([SDL/SDL_gfxPrimitives.h])
+#AC_CHECK_HEADERS([SDL/SDL_framerate.h])
 
 # Checks for library functions.
 AC_FUNC_MALLOC
@@ -94,6 +103,8 @@ AC_FUNC_MALLOC
 
 # Checks for library functions.
 AC_CHECK_FUNCS([atexit])
+
+AC_CONFIG_MACRO_DIR([m4])
 
 AC_CONFIG_FILES([Makefile
                  demo/Makefile
